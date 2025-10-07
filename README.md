@@ -87,6 +87,11 @@ Open for feature requests.
 ## Documentation
 You can find various Guppy Screen documents [here](https://ballaswag.github.io/docs/guppyscreen/configuration/).
 
+## Development
+For information on building from source and development setup, see [DEVELOPMENT.md](DEVELOPMENT.md).
+
+For testing without a physical printer, you can use [virtual-3dprinter](https://github.com/prestonbrown/virtual-3dprinter) to simulate a Klipper/Moonraker environment.
+
 ## Screenshot
 ### Material Theme
 ![Material Theme Guppy Screen](https://github.com/probielodan/guppyscreen/blob/main/screenshots/material/material_screenshot.png)

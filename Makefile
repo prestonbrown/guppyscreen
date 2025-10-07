@@ -22,8 +22,20 @@ WARNINGS		:= -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wp
 					-Wno-unused-value -Wno-unused-parameter -Wno-missing-field-initializers -Wuninitialized -Wmaybe-uninitialized -Wall -Wextra -Wno-unused-parameter \
 					-Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess -Wno-format-nonliteral -Wpointer-arith -Wno-cast-qual \
 					-Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-sign-compare
-CFLAGS 			?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS) 
+CFLAGS 			?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
+
+# Use dynamic linking for simulator builds (when CROSS_COMPILE is not set)
+ifndef CROSS_COMPILE
+# macOS doesn't need -latomic and has filesystem built into libc++
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+LDFLAGS 		?= -lm -Llibhv/lib -Lspdlog/build -lhv -lpthread -Lwpa_supplicant/wpa_supplicant/ -lwpa_client -lspdlog
+else
+LDFLAGS 		?= -lm -Llibhv/lib -Lspdlog/build -lhv -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -lwpa_client -lstdc++fs -lspdlog
+endif
+else
 LDFLAGS 		?= -static -lm -Llibhv/lib -Lspdlog/build -l:libhv.a -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -l:libwpa_client.a -lstdc++fs -l:libspdlog.a
+endif
 BIN 			= guppyscreen
 BUILD_DIR 		= ./build
 BUILD_OBJ_DIR 	= $(BUILD_DIR)/obj
@@ -160,5 +172,14 @@ build:
 	$(MAKE) libspdlog.a
 	$(MAKE) clean
 	$(MAKE) -j$(nproc)
+	@echo "Setting up configuration..."
+ifndef CROSS_COMPILE
+	@echo "Copying simulator config and creating directories..."
+	@mkdir -p $(BUILD_DIR)/logs $(BUILD_DIR)/thumbnails
+	@cp -n guppyconfig-simulator.json $(BUILD_BIN_DIR)/guppyconfig.json 2>/dev/null || true
+else
+	@echo "Copying production config..."
+	@cp -n debian/guppyconfig.json $(BUILD_BIN_DIR)/ 2>/dev/null || true
+endif
 
 -include			$(DEPS)

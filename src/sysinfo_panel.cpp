@@ -9,9 +9,13 @@
 #include <iterator>
 #include <map>
 
+#ifdef __APPLE__
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
 #include <experimental/filesystem>
-
 namespace fs = std::experimental::filesystem;
+#endif
 
 LV_IMG_DECLARE(back);
 

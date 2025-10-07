@@ -25,6 +25,9 @@ class BedMeshPanel : public NotifyConsumer {
   void handle_prompt_cancel(lv_event_t *event);
   void handle_kb_input(lv_event_t *e);
   void mesh_draw_cb(lv_event_t *e);
+  void draw_3d_mesh();
+  void handle_view_angle_change(lv_event_t *event);
+  void handle_display_mode_toggle(lv_event_t *event);
 
   static void _handle_callback(lv_event_t *event) {
     BedMeshPanel *panel = (BedMeshPanel*)event->user_data;
@@ -56,12 +59,25 @@ class BedMeshPanel : public NotifyConsumer {
     panel->mesh_draw_cb(e);
   };
 
+  static void _handle_view_angle_change(lv_event_t *event) {
+    BedMeshPanel *panel = (BedMeshPanel*)event->user_data;
+    panel->handle_view_angle_change(event);
+  };
+
+  static void _handle_display_mode_toggle(lv_event_t *event) {
+    BedMeshPanel *panel = (BedMeshPanel*)event->user_data;
+    panel->handle_display_mode_toggle(event);
+  };
+
  private:
   KWebSocketClient &ws;
   lv_obj_t *cont;
   lv_obj_t *prompt;
   lv_obj_t *top_cont;
   lv_obj_t *mesh_table;
+  lv_obj_t *mesh_canvas;
+  lv_obj_t *view_angle_btn;
+  lv_obj_t *display_mode_btn;
   lv_obj_t *profile_cont;
   lv_obj_t *profile_table;
   lv_obj_t *profile_info;
@@ -75,6 +91,9 @@ class BedMeshPanel : public NotifyConsumer {
   lv_obj_t *kb;
   std::string active_profile;
   std::vector<std::vector<double>> mesh;
+  int current_view_angle;
+  void *canvas_draw_buf;
+  bool show_3d_view;
 };
 
 #endif // __BEDMESH_PANEL_H__

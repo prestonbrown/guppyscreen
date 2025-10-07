@@ -173,7 +173,7 @@ BedMeshPanel::BedMeshPanel(KWebSocketClient &c, std::mutex &l)
   lv_obj_set_style_bg_color(msgbox, lv_palette_darken(LV_PALETTE_GREY, 1), 0);
   lv_obj_align(msgbox, LV_ALIGN_TOP_MID, 0, 20);
 
-  lv_obj_t *label = NULL;
+  lv_obj_t *label = nullptr;
 
   label = lv_label_create(msgbox);
   lv_obj_set_width(label, LV_PCT(100));
@@ -207,14 +207,14 @@ BedMeshPanel::~BedMeshPanel() {
     canvas_draw_buf = nullptr;
   }
 
-  if (cont != NULL) {
+  if (cont != nullptr) {
     lv_obj_del(cont);
-    cont = NULL;
+    cont = nullptr;
   }
 
-  if (prompt != NULL) {
+  if (prompt != nullptr) {
     lv_obj_del(prompt);
-    prompt = NULL;
+    prompt = nullptr;
   }
 }
 
@@ -241,7 +241,7 @@ void BedMeshPanel::refresh_views(json &bm) {
     }
 
     active_profile = active_profile_j.template get<std::string>();
-    if (active_profile.length() > 0) {
+    if (!active_profile.empty()) {
       save_btn.enable();
 
       refresh_profile_info(active_profile);
@@ -258,7 +258,7 @@ void BedMeshPanel::refresh_views(json &bm) {
       draw_3d_mesh();
 
       // calculate cell width
-      if (mesh.size() > 0 && mesh[0].size() > 0) {
+      if (!mesh.empty() && !mesh[0].empty()) {
         auto height = lv_obj_get_height(mesh_table);
         int cel_height = std::max(1, (int)(height / mesh.size() / 2 - 5));
         auto width = lv_obj_get_width(mesh_table);
@@ -299,7 +299,7 @@ void BedMeshPanel::refresh_views(json &bm) {
 
     spdlog::trace("active {}, profiles is {}", active_profile, profiles.dump());
 
-    if (profiles.size() > 0) {
+    if (!profiles.empty()) {
       lv_obj_clear_flag(profile_cont, LV_OBJ_FLAG_HIDDEN);
 
       row_idx = 0;
@@ -388,7 +388,7 @@ void BedMeshPanel::handle_callback(lv_event_t *event) {
     lv_obj_clear_flag(prompt, LV_OBJ_FLAG_HIDDEN);
     lv_obj_clear_flag(kb, LV_OBJ_FLAG_HIDDEN);
 
-    if (active_profile.length() > 0) {
+    if (!active_profile.empty()) {
       lv_textarea_set_text(input, active_profile.c_str());
     }
 
@@ -438,7 +438,7 @@ void BedMeshPanel::handle_profile_action(lv_event_t *e) {
       // delete profile
       spdlog::trace("delete mesh {}", profile_name);
       ws.gcode_script(fmt::format("BED_MESH_PROFILE REMOVE=\"{}\"\nSAVE_CONFIG", profile_name));
-    } else if (col == 1 && selected != NULL && strlen(selected) != 0) {
+    } else if (col == 1 && selected != nullptr && strlen(selected) != 0) {
       // load profile
       spdlog::trace("selected {}, load mesh {}", strlen(selected), profile_name);
       ws.gcode_script(fmt::format("BED_MESH_PROFILE LOAD=\"{}\"", profile_name));
@@ -456,7 +456,7 @@ void BedMeshPanel::handle_prompt_save(lv_event_t *e) {
   lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_CLICKED) {
     const char *profile_name = lv_textarea_get_text(input);
-    if (profile_name == NULL || strlen(profile_name) == 0) {
+    if (profile_name == nullptr || strlen(profile_name) == 0) {
       return;
     }
 
@@ -482,7 +482,7 @@ void BedMeshPanel::handle_kb_input(lv_event_t *e)
   const lv_event_code_t code = lv_event_get_code(e);
   if (code == LV_EVENT_READY) {
     const char *profile_name = lv_textarea_get_text(input);
-    if (profile_name == NULL || strlen(profile_name) == 0) {
+    if (profile_name == nullptr || strlen(profile_name) == 0) {
       return;
     }
 

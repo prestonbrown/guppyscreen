@@ -32,27 +32,21 @@ config:
 # Load build configuration
 -include .config
 
-# Ensure configuration exists for build targets
-.config:
-	@echo "============================================================"
-	@echo "  No target has been specified."
-	@echo "  Run 'make config' first to select your target hardware."
-	@echo "============================================================"
-	@exit 1
-
 # Default target - check for configuration first
 .DEFAULT_GOAL := default
 
 .PHONY: default
 default:
 	@if [ ! -f .config ]; then \
-		echo "============================================================"; \
-		echo "  No target has been specified."; \
-		echo "  Run 'make config' first to select your target hardware."; \
-		echo "============================================================"; \
-		exit 1; \
+		echo ""; \
+		echo "No build target configured."; \
+		echo ""; \
+		echo "Run 'make config' to select your target hardware."; \
+		echo ""; \
+		false; \
+	else \
+		$(MAKE) -j$(NPROC) compile; \
 	fi
-	@$(MAKE) -j$(NPROC) compile
 
 help:
 	@echo "GuppyScreen Build System"
@@ -69,8 +63,16 @@ help:
 # Target Validation
 #===============================================================================
 
-# All build targets require .config
-build default all install: .config
+# Validate configuration exists for explicit build targets
+.PHONY: check-config
+check-config:
+	@if [ ! -f .config ]; then \
+		echo ""; \
+		echo "Error: No build target configured."; \
+		echo "Run 'make config' first to select your target hardware."; \
+		echo ""; \
+		exit 1; \
+	fi
 
 # Validate TARGET is set and valid
 ifdef TARGET
@@ -255,6 +257,13 @@ endif
 # Source Files
 #===============================================================================
 
+# Check and initialize submodules if needed (runs during Makefile parsing)
+# Check key files from each submodule: lvgl, lv_drivers, spdlog, libhv, wpa_supplicant
+ifeq ($(and $(wildcard lvgl/lvgl.mk),$(wildcard lv_drivers/lv_drivers.mk),$(wildcard spdlog/include/spdlog/spdlog.h),$(wildcard libhv/Makefile),$(wildcard wpa_supplicant/wpa_supplicant/Makefile)),)
+  $(info Initializing git submodules...)
+  $(shell git submodule update --init --recursive)
+endif
+
 MAINSRC  = $(filter-out $(LVGL_DIR)/src/kd_graphic_mode.cpp, $(wildcard $(LVGL_DIR)/src/*.cpp))
 
 include $(LVGL_DIR)/lvgl/lvgl.mk
@@ -289,7 +298,7 @@ COMPILE_CXX = $(CXX) $(CFLAGS) $(INC) $(DEFINES)
 # Build Rules
 #===============================================================================
 
-all: compile
+all: check-config compile
 
 libhv.a:
 	$(MAKE) -C libhv -j$(NPROC) libhv
@@ -358,7 +367,7 @@ clean:
 # Install/Uninstall
 #===============================================================================
 
-install:
+install: check-config
 	install -d $(DESTDIR)$(bindir)
 	install $(BUILD_BIN_DIR)/$(BIN) $(DESTDIR)$(bindir)
 
@@ -369,7 +378,7 @@ uninstall:
 # Full Build Process
 #===============================================================================
 
-build:
+build: check-config
 	@echo "Building with $(NPROC) parallel jobs..."
 	$(MAKE) wpaclean
 	$(MAKE) wpaclient

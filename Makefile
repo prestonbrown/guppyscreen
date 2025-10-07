@@ -56,16 +56,19 @@ ifeq ($(TARGET),simulator)
   # SIMULATOR - macOS/Linux Development Build
   # ===========================================================================
   DEFINES += -D LV_BUILD_TEST=0 -D SIMULATOR
-  LDLIBS  += -lSDL2
 
   # Platform-specific linking
   UNAME_S := $(shell uname -s)
   ifeq ($(UNAME_S),Darwin)
     # macOS: Static linking to avoid runtime dyld issues
-    LDFLAGS ?= -lm libhv/lib/libhv.a spdlog/build/libspdlog.a wpa_supplicant/wpa_supplicant/libwpa_client.a -lpthread -framework Security -framework CoreFoundation
+    # Detect SDL2 location (Homebrew or system)
+    SDL2_PREFIX := $(shell brew --prefix sdl2 2>/dev/null || echo "/usr/local")
+    LDFLAGS ?= -lm libhv/lib/libhv.a spdlog/build/libspdlog.a wpa_supplicant/wpa_supplicant/libwpa_client.a \
+               -lpthread -L$(SDL2_PREFIX)/lib -lSDL2 -framework Security -framework CoreFoundation
   else
     # Linux: Dynamic linking
-    LDFLAGS ?= -lm -Llibhv/lib -Lspdlog/build -lhv -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -lwpa_client -lstdc++fs -lspdlog
+    LDFLAGS ?= -lm -Llibhv/lib -Lspdlog/build -lhv -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ \
+               -lwpa_client -lstdc++fs -lspdlog -lSDL2
   endif
 
 else ifeq ($(TARGET),pi)
@@ -143,14 +146,32 @@ SPDLOG_DIR      = spdlog
 prefix ?= /usr
 bindir ?= $(prefix)/bin
 
-# Compiler warnings
-WARNINGS := -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wpointer-arith \
-            -fno-strict-aliasing -Wno-error=cpp -Wuninitialized -Wmaybe-uninitialized -Wno-unused-parameter -Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess \
-            -Wno-format-nonliteral -Wno-cast-qual -Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-error=pedantic \
-            -Wno-sign-compare -Wdouble-promotion -Wclobbered -Wempty-body -Wtype-limits -Wshift-negative-value \
-            -Wno-unused-value -Wno-unused-parameter -Wno-missing-field-initializers -Wuninitialized -Wmaybe-uninitialized -Wall -Wextra -Wno-unused-parameter \
-            -Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess -Wno-format-nonliteral -Wpointer-arith -Wno-cast-qual \
-            -Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-sign-compare
+# Detect compiler type for appropriate warning flags
+CC_VERSION := $(shell $(CC) --version 2>/dev/null)
+CXX_VERSION := $(shell $(CXX) --version 2>/dev/null)
+
+# Common warnings supported by both GCC and Clang
+WARNINGS_COMMON := -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wpointer-arith \
+                   -fno-strict-aliasing -Wno-error=cpp -Wuninitialized -Wno-unused-parameter \
+                   -Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess \
+                   -Wno-format-nonliteral -Wno-cast-qual -Wunreachable-code -Wno-switch-default \
+                   -Wreturn-type -Wmultichar -Wformat-security -Wno-error=pedantic -Wno-sign-compare \
+                   -Wdouble-promotion -Wempty-body -Wshift-negative-value -Wno-unused-value
+
+# GCC-specific warnings (not supported by Clang)
+WARNINGS_GCC := -Wmaybe-uninitialized -Wclobbered
+
+# Detect if we're using Clang or GCC
+ifneq (,$(findstring clang,$(CC_VERSION)))
+  # Clang: use only common warnings
+  WARNINGS := $(WARNINGS_COMMON)
+else ifneq (,$(findstring gcc,$(CC_VERSION)))
+  # GCC: use common + GCC-specific warnings
+  WARNINGS := $(WARNINGS_COMMON) $(WARNINGS_GCC)
+else
+  # Unknown compiler: use only common warnings to be safe
+  WARNINGS := $(WARNINGS_COMMON)
+endif
 
 CFLAGS  ?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
 INC      := -I./ -I./lvgl/ -I./lv_touch_calibration -I./spdlog/include -Ilibhv/include -Iwpa_supplicant/src/common

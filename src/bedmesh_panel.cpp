@@ -400,6 +400,9 @@ void BedMeshPanel::handle_callback(lv_event_t *event) {
 
   } else if (btn == calibrate_btn.get_container()) {
     spdlog::trace("mesh calibrate pressed");
+#ifdef TARGET_FLASHFORGE
+    ws.gcode_script("AUTO_FULL_BED_LEVEL");
+#else
     auto v = State::get_instance()
       ->get_data("/printer_state/toolhead/homed_axes"_json_pointer);
     if (!v.is_null()) {
@@ -409,6 +412,7 @@ void BedMeshPanel::handle_callback(lv_event_t *event) {
       }
     }
     ws.gcode_script("G28 X Y Z\nBED_MESH_CALIBRATE");
+#endif
 
   } else if (btn == back_btn.get_container()) {
     spdlog::trace("back button pressed");

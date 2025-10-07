@@ -1,114 +1,217 @@
 #
-# Makefile
+# Makefile for GuppyScreen
 #
+
+# Configuration target - interactive menu to select build target
+.PHONY: config
+config:
+	@bash scripts/config.sh
+
+# Load build configuration
+-include .config
+
+# Ensure configuration exists for build targets
+.config:
+	@echo "============================================================"
+	@echo "  No build configuration found!"
+	@echo "  Please run 'make config' to select your target hardware."
+	@echo "============================================================"
+	@exit 1
+
+# Default target if no configuration exists
+.DEFAULT_GOAL := help
+
+help:
+	@echo "GuppyScreen Build System"
+	@echo ""
+	@echo "Available targets:"
+	@echo "  config    - Configure build target (interactive menu)"
+	@echo "  build     - Build GuppyScreen for configured target"
+	@echo "  clean     - Remove build artifacts"
+	@echo "  install   - Install to system (requires root)"
+	@echo ""
+	@echo "Run 'make config' first to select your hardware target."
+
+#===============================================================================
+# Target Validation
+#===============================================================================
+
+# All build targets require .config
+build default all install: .config
+
+# Validate TARGET is set and valid
+ifdef TARGET
+  VALID_TARGETS := simulator pi k1 flashforge
+  ifeq ($(filter $(TARGET),$(VALID_TARGETS)),)
+    $(error Invalid TARGET: $(TARGET). Valid options: $(VALID_TARGETS))
+  endif
+endif
+
+#===============================================================================
+# Target-Specific Configuration
+#===============================================================================
+
+ifeq ($(TARGET),simulator)
+  # ===========================================================================
+  # SIMULATOR - macOS/Linux Development Build
+  # ===========================================================================
+  DEFINES += -D LV_BUILD_TEST=0 -D SIMULATOR
+  LDLIBS  += -lSDL2
+
+  # Platform-specific linking
+  UNAME_S := $(shell uname -s)
+  ifeq ($(UNAME_S),Darwin)
+    # macOS: Static linking to avoid runtime dyld issues
+    LDFLAGS ?= -lm libhv/lib/libhv.a spdlog/build/libspdlog.a wpa_supplicant/wpa_supplicant/libwpa_client.a -lpthread -framework Security -framework CoreFoundation
+  else
+    # Linux: Dynamic linking
+    LDFLAGS ?= -lm -Llibhv/lib -Lspdlog/build -lhv -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -lwpa_client -lstdc++fs -lspdlog
+  endif
+
+else ifeq ($(TARGET),pi)
+  # ===========================================================================
+  # RASPBERRY PI / BTT PAD - Native ARM Build
+  # ===========================================================================
+  DEFINES += -D TARGET_PI
+  # Native build on device (no cross-compilation)
+  # Dynamic linking
+  LDFLAGS ?= -lm -Llibhv/lib -Lspdlog/build -lhv -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -lwpa_client -lstdc++fs -lspdlog
+
+else ifeq ($(TARGET),k1)
+  # ===========================================================================
+  # CREALITY K1/MAX - MIPS Embedded Build
+  # ===========================================================================
+  CROSS_COMPILE = mips-linux-gnu-
+  DEFINES += -D TARGET_K1
+  LDFLAGS ?= -static -lm -Llibhv/lib -Lspdlog/build -l:libhv.a -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -l:libwpa_client.a -lstdc++fs -l:libspdlog.a
+
+else ifeq ($(TARGET),flashforge)
+  # ===========================================================================
+  # FLASHFORGE FF5M/PRO - ARM Embedded Build
+  # ===========================================================================
+  CROSS_COMPILE = arm-unknown-linux-gnueabihf-
+  DEFINES += -D TARGET_FLASHFORGE
+  # FlashForge uses dynamic linking (per Alexander's configuration)
+  LDFLAGS ?= -lm -Llibhv/lib -Lspdlog/build -l:libhv.a -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -l:libwpa_client.a -lstdc++fs -l:libspdlog.a
+  RANLIB = $(CROSS_COMPILE)ranlib
+
+endif
+
+#===============================================================================
+# Cross-Compilation Toolchain Setup
+#===============================================================================
+
 ifdef CROSS_COMPILE
-CC 	= $(CROSS_COMPILE)gcc
-CXX = $(CROSS_COMPILE)g++
-CPP = $(CC) -E
-AS 	= $(CROSS_COMPILE)as
-LD	= $(CROSS_COMPILE)ld
-AR	= $(CROSS_COMPILE)ar
-NM	= $(CROSS_COMPILE)nm
-STRIP 	= $(CROSS_COMPILE)strip
+  CC     = $(CROSS_COMPILE)gcc
+  CXX    = $(CROSS_COMPILE)g++
+  CPP    = $(CC) -E
+  AS     = $(CROSS_COMPILE)as
+  LD     = $(CROSS_COMPILE)ld
+  AR     = $(CROSS_COMPILE)ar
+  NM     = $(CROSS_COMPILE)nm
+  STRIP  = $(CROSS_COMPILE)strip
+  ifndef RANLIB
+    RANLIB = $(CROSS_COMPILE)ranlib
+  endif
 endif
 
-LVGL_DIR_NAME 	?= lvgl
-LVGL_DIR 		?= .
+#===============================================================================
+# Build Configuration
+#===============================================================================
 
-WARNINGS		:= -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wpointer-arith \
-					-fno-strict-aliasing -Wno-error=cpp -Wuninitialized -Wmaybe-uninitialized -Wno-unused-parameter -Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess \
-					-Wno-format-nonliteral -Wno-cast-qual -Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-error=pedantic \
-					-Wno-sign-compare -Wdouble-promotion -Wclobbered -Wempty-body -Wtype-limits -Wshift-negative-value \
-					-Wno-unused-value -Wno-unused-parameter -Wno-missing-field-initializers -Wuninitialized -Wmaybe-uninitialized -Wall -Wextra -Wno-unused-parameter \
-					-Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess -Wno-format-nonliteral -Wpointer-arith -Wno-cast-qual \
-					-Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-sign-compare
-CFLAGS 			?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
+LVGL_DIR_NAME  ?= lvgl
+LVGL_DIR       ?= .
+BIN             = guppyscreen
+BUILD_DIR       = ./build
+BUILD_OBJ_DIR   = $(BUILD_DIR)/obj
+BUILD_BIN_DIR   = $(BUILD_DIR)/bin
+SPDLOG_DIR      = spdlog
 
-# Use dynamic linking for simulator builds (when CROSS_COMPILE is not set)
-ifndef CROSS_COMPILE
-# macOS doesn't need -latomic and has filesystem built into libc++
-UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-# On macOS, use static libraries to avoid runtime dependency issues
-# Need to link Security framework for SSL support in libhv
-LDFLAGS 		?= -lm libhv/lib/libhv.a spdlog/build/libspdlog.a wpa_supplicant/wpa_supplicant/libwpa_client.a -lpthread -framework Security -framework CoreFoundation
-else
-LDFLAGS 		?= -lm -Llibhv/lib -Lspdlog/build -lhv -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -lwpa_client -lstdc++fs -lspdlog
+prefix ?= /usr
+bindir ?= $(prefix)/bin
+
+# Compiler warnings
+WARNINGS := -Wall -Wextra -Wno-unused-function -Wno-error=strict-prototypes -Wpointer-arith \
+            -fno-strict-aliasing -Wno-error=cpp -Wuninitialized -Wmaybe-uninitialized -Wno-unused-parameter -Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess \
+            -Wno-format-nonliteral -Wno-cast-qual -Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-error=pedantic \
+            -Wno-sign-compare -Wdouble-promotion -Wclobbered -Wempty-body -Wtype-limits -Wshift-negative-value \
+            -Wno-unused-value -Wno-unused-parameter -Wno-missing-field-initializers -Wuninitialized -Wmaybe-uninitialized -Wall -Wextra -Wno-unused-parameter \
+            -Wno-missing-field-initializers -Wtype-limits -Wsizeof-pointer-memaccess -Wno-format-nonliteral -Wpointer-arith -Wno-cast-qual \
+            -Wunreachable-code -Wno-switch-default -Wreturn-type -Wmultichar -Wformat-security -Wno-sign-compare
+
+CFLAGS  ?= -O3 -g0 -MD -MP -I$(LVGL_DIR)/ $(WARNINGS)
+INC      := -I./ -I./lvgl/ -I./lv_touch_calibration -I./spdlog/include -Ilibhv/include -Iwpa_supplicant/src/common
+LDLIBS   := -lm
+
+DEFINES += -D _GNU_SOURCE -DSPDLOG_COMPILED_LIB
+
+#===============================================================================
+# Optional Build Flags (legacy support)
+#===============================================================================
+
+ifdef EVDEV_CALIBRATE
+  DEFINES += -D EVDEV_CALIBRATE
 endif
-else
-LDFLAGS 		?= -static -lm -Llibhv/lib -Lspdlog/build -l:libhv.a -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -l:libwpa_client.a -lstdc++fs -l:libspdlog.a
+
+ifdef GUPPYSCREEN_VERSION
+  DEFINES += -D GUPPYSCREEN_VERSION="\"${GUPPYSCREEN_VERSION}\""
 endif
-BIN 			= guppyscreen
-BUILD_DIR 		= ./build
-BUILD_OBJ_DIR 	= $(BUILD_DIR)/obj
-BUILD_BIN_DIR 	= $(BUILD_DIR)/bin
-SPDLOG_DIR		= spdlog
 
-prefix 			?= /usr
-bindir 			?= $(prefix)/bin
+# Theme selection
+ASSET_DIR = material
+ifeq ($(GUPPY_THEME),zbolt)
+  ASSET_DIR = zbolt
+  DEFINES += -D ZBOLT
+endif
 
-#Collect the files to compile
-MAINSRC = 		$(filter-out $(LVGL_DIR)/src/kd_graphic_mode.cpp, $(wildcard $(LVGL_DIR)/src/*.cpp))
+# Small screen support
+ifdef GUPPY_SMALL_SCREEN
+  ASSET_DIR = material_46
+  DEFINES += -D GUPPY_SMALL_SCREEN
+endif
+
+# Screen rotation
+ifdef GUPPY_ROTATE
+  DEFINES += -D GUPPY_ROTATE
+endif
+
+#===============================================================================
+# Source Files
+#===============================================================================
+
+MAINSRC  = $(filter-out $(LVGL_DIR)/src/kd_graphic_mode.cpp, $(wildcard $(LVGL_DIR)/src/*.cpp))
 
 include $(LVGL_DIR)/lvgl/lvgl.mk
 include $(LVGL_DIR)/lv_drivers/lv_drivers.mk
 
-CSRCS 			+= $(wildcard $(LVGL_DIR)/assets/*.c)
-CSRCS			+= $(wildcard $(LVGL_DIR)/lv_touch_calibration/*.c)
+CSRCS   += $(wildcard $(LVGL_DIR)/assets/*.c)
+CSRCS   += $(wildcard $(LVGL_DIR)/lv_touch_calibration/*.c)
 
-ASSET_DIR		= material
-ifdef GUPPY_SMALL_SCREEN
-ASSET_DIR		= material_46
-DEFINES			+= -D GUPPY_SMALL_SCREEN
-endif
-
-
-ifdef GUPPY_ROTATE
-DEFINES			+= -D GUPPY_ROTATE
-endif
-
-
+# Add theme assets
 ifeq ($(GUPPY_THEME),zbolt)
-CSRCS 			+= $(wildcard $(LVGL_DIR)/assets/zbolt/*.c)
-DEFINES			+= -D ZBOLT
+  CSRCS += $(wildcard $(LVGL_DIR)/assets/zbolt/*.c)
 else
-CSRCS 			+= $(wildcard $(LVGL_DIR)/assets/$(ASSET_DIR)/*.c)
+  CSRCS += $(wildcard $(LVGL_DIR)/assets/$(ASSET_DIR)/*.c)
 endif
 
-ifdef GUPPYSCREEN_VERSION
-DEFINES			+= -D GUPPYSCREEN_VERSION="\"${GUPPYSCREEN_VERSION}\""
-endif
+#===============================================================================
+# Object Files
+#===============================================================================
 
-OBJEXT 			?= .o
+OBJEXT  ?= .o
+AOBJS    = $(ASRCS:.S=$(OBJEXT))
+COBJS    = $(CSRCS:.c=$(OBJEXT))
+MAINOBJ  = $(MAINSRC:.cpp=$(OBJEXT))
+DEPS     = $(addprefix $(BUILD_OBJ_DIR)/, $(patsubst %.o, %.d, $(MAINOBJ)))
+OBJS     = $(AOBJS) $(COBJS) $(MAINOBJ)
+TARGETS  = $(addprefix $(BUILD_OBJ_DIR)/, $(patsubst ./%, %, $(OBJS)))
 
-AOBJS 			= $(ASRCS:.S=$(OBJEXT))
-COBJS 			= $(CSRCS:.c=$(OBJEXT))
+COMPILE_CC  = $(CC) $(CFLAGS) $(INC) $(DEFINES)
+COMPILE_CXX = $(CXX) $(CFLAGS) $(INC) $(DEFINES)
 
-MAINOBJ 		= $(MAINSRC:.cpp=$(OBJEXT))
-DEPS                    = $(addprefix $(BUILD_OBJ_DIR)/, $(patsubst %.o, %.d, $(MAINOBJ)))
-
-OBJS 			= $(AOBJS) $(COBJS) $(MAINOBJ)
-TARGET 			= $(addprefix $(BUILD_OBJ_DIR)/, $(patsubst ./%, %, $(OBJS)))
-
-INC 				:= -I./ -I./lvgl/ -I./lv_touch_calibration -I./spdlog/include -Ilibhv/include -Iwpa_supplicant/src/common
-LDLIBS	 			:= -lm
-
-DEFINES				+= -D _GNU_SOURCE -DSPDLOG_COMPILED_LIB
-
-ifdef EVDEV_CALIBRATE
-DEFINES +=  -D EVDEV_CALIBRATE
-endif
-
-# SIMULATION is enabled by default, need CROSS_COMPILE variable to do MIPS build
-ifndef CROSS_COMPILE
-DEFINES +=  -D LV_BUILD_TEST=0 -D SIMULATOR
-LDLIBS += -lSDL2
-endif
-
-COMPILE_CC				= $(CC) $(CFLAGS) $(INC) $(DEFINES)
-COMPILE_CXX				= $(CC) $(CFLAGS) $(INC) $(DEFINES)
-
-## MAINOBJ -> OBJFILES
+#===============================================================================
+# Build Rules
+#===============================================================================
 
 all: default
 
@@ -121,7 +224,11 @@ libspdlog.a:
 	$(MAKE) -C $(SPDLOG_DIR)/build -j$(nproc)
 
 wpaclient:
+ifeq ($(TARGET),flashforge)
+	$(MAKE) -C wpa_supplicant/wpa_supplicant CC=$(CC) RANLIB=$(RANLIB) -j$(nproc) libwpa_client.a
+else
 	$(MAKE) -C wpa_supplicant/wpa_supplicant -j$(nproc) libwpa_client.a
+endif
 
 $(BUILD_OBJ_DIR)/%.o: %.cpp
 	@mkdir -p $(dir $@)
@@ -130,21 +237,25 @@ $(BUILD_OBJ_DIR)/%.o: %.cpp
 
 $(BUILD_OBJ_DIR)/%.o: %.c
 	@mkdir -p $(dir $@)
-	@$(COMPILE_CC)  $(CFLAGS) -c $< -o $@
+	@$(COMPILE_CC) $(CFLAGS) -c $< -o $@
 	@echo "CC $<"
 
 $(BUILD_OBJ_DIR)/kd_graphic_mode.o: src/kd_graphic_mode.cpp
 	@mkdir -p $(dir $@)
-	@$(COMPILE_CC)  $(CFLAGS) -c $< -o $@
+	@$(COMPILE_CC) $(CFLAGS) -c $< -o $@
 	@echo "CC $<"
 
 kd_graphic_mode: $(BUILD_OBJ_DIR)/kd_graphic_mode.o
 	$(CC) -o $(BUILD_BIN_DIR)/kd_graphic_mode $(BUILD_OBJ_DIR)/kd_graphic_mode.o
 
-default: $(TARGET)
+default: $(TARGETS)
 	@mkdir -p $(dir $(BUILD_BIN_DIR)/)
-	$(CXX) -o $(BUILD_BIN_DIR)/$(BIN) $(TARGET) $(LDFLAGS) $(LDLIBS)
+	$(CXX) -o $(BUILD_BIN_DIR)/$(BIN) $(TARGETS) $(LDFLAGS) $(LDLIBS)
 	@echo "CXX $<"
+
+#===============================================================================
+# Clean Targets
+#===============================================================================
 
 spdlogclean:
 	rm -rf $(SPDLOG_DIR)/build
@@ -158,12 +269,20 @@ wpaclean:
 clean:
 	rm -rf $(BUILD_DIR)
 
+#===============================================================================
+# Install/Uninstall
+#===============================================================================
+
 install:
 	install -d $(DESTDIR)$(bindir)
 	install $(BUILD_BIN_DIR)/$(BIN) $(DESTDIR)$(bindir)
 
 uninstall:
 	$(RM) -r $(addprefix $(DESTDIR)$(bindir)/,$(BIN))
+
+#===============================================================================
+# Full Build Process
+#===============================================================================
 
 build:
 	$(MAKE) wpaclean
@@ -175,13 +294,13 @@ build:
 	$(MAKE) clean
 	$(MAKE) -j$(nproc)
 	@echo "Setting up configuration..."
-ifndef CROSS_COMPILE
+ifeq ($(TARGET),simulator)
 	@echo "Copying simulator config and creating directories..."
 	@mkdir -p $(BUILD_DIR)/logs $(BUILD_DIR)/thumbnails
 	@cp -n guppyconfig-simulator.json $(BUILD_BIN_DIR)/guppyconfig.json 2>/dev/null || true
 else
 	@echo "Copying production config..."
-	@cp -n debian/guppyconfig.json $(BUILD_BIN_DIR)/ 2>/dev/null || true
+	@cp -n debian/guppyconfig.json $(BUILD_BIN_DIR)/guppyconfig.json 2>/dev/null || true
 endif
 
--include			$(DEPS)
+-include $(DEPS)

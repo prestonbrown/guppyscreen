@@ -31,8 +31,10 @@ PrinterTunePanel::PrinterTunePanel(KWebSocketClient &c, std::mutex &l, lv_obj_t 
   , limits_panel(c, l)
   , inputshaper_panel(c, l)
   , belts_calibration_panel(c, l)
+#ifndef TARGET_FLASHFORGE
   , tmc_tune_panel(c)
   , tmc_status_panel(c, l)
+#endif
   , power_panel(c, l)
   , bedmesh_btn(cont, &bedmesh_img, "Bed Mesh", &PrinterTunePanel::_handle_callback, this)
   , finetune_btn(cont, &fine_tune_img, "Fine Tune", &PrinterTunePanel::_handle_callback, this)
@@ -43,8 +45,10 @@ PrinterTunePanel::PrinterTunePanel(KWebSocketClient &c, std::mutex &l, lv_obj_t 
   , belts_calibration_btn(cont, &inputshaper_img, "Belts/Shake", &PrinterTunePanel::_handle_callback, this)
 #endif
   , limits_btn(cont, &limit_img, "Limits", &PrinterTunePanel::_handle_callback, this)
+#ifndef TARGET_FLASHFORGE
   , tmc_tune_btn(cont, &motor_img, "TMC Autotune", &PrinterTunePanel::_handle_callback, this)
   , tmc_status_btn(cont, &chart_img, "TMC Metrics", &PrinterTunePanel::_handle_callback, this)
+#endif
 #ifndef ZBOLT
   , power_devices_btn(cont, &power_devices_img, "Power Devices", &PrinterTunePanel::_handle_callback, this)
 #else
@@ -56,7 +60,9 @@ PrinterTunePanel::PrinterTunePanel(KWebSocketClient &c, std::mutex &l, lv_obj_t 
   lv_obj_clear_flag(cont, LV_OBJ_FLAG_SCROLLABLE);
   lv_obj_set_size(cont, LV_PCT(100), LV_PCT(100));
 
+#ifndef TARGET_FLASHFORGE
   tmc_tune_btn.disable();
+#endif
 
   static lv_coord_t grid_main_row_dsc[] = {LV_GRID_FR(1), LV_GRID_FR(5), LV_GRID_FR(5), LV_GRID_FR(1),
     LV_GRID_TEMPLATE_LAST};
@@ -73,8 +79,10 @@ PrinterTunePanel::PrinterTunePanel(KWebSocketClient &c, std::mutex &l, lv_obj_t 
 
   // row 2
   lv_obj_set_grid_cell(limits_btn.get_container(), LV_GRID_ALIGN_STRETCH, 0, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+#ifndef TARGET_FLASHFORGE
   lv_obj_set_grid_cell(tmc_tune_btn.get_container(), LV_GRID_ALIGN_STRETCH, 3, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
   lv_obj_set_grid_cell(tmc_status_btn.get_container(), LV_GRID_ALIGN_STRETCH, 2, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
+#endif
   lv_obj_set_grid_cell(power_devices_btn.get_container(), LV_GRID_ALIGN_STRETCH, 1, 1, LV_GRID_ALIGN_STRETCH, 2, 1);
   // lv_obj_set_grid_cell(restart_firmware_btn.get_container(), LV_GRID_ALIGN_CENTER, 3, 1, LV_GRID_ALIGN_START, 2, 1);
 }
@@ -101,6 +109,7 @@ PowerPanel &PrinterTunePanel::get_power_panel() {
 void PrinterTunePanel::init(json &j) {
   limits_panel.init(j);
 
+#ifndef TARGET_FLASHFORGE
   tmc_status_panel.init(j);
 
   // TODO: handle remote guppy instance
@@ -115,6 +124,7 @@ void PrinterTunePanel::init(json &j) {
       tmc_tune_btn.disable();
     }
   }
+#endif
 }
 
 void PrinterTunePanel::handle_callback(lv_event_t *event) {
@@ -136,12 +146,14 @@ void PrinterTunePanel::handle_callback(lv_event_t *event) {
     } else if (btn == limits_btn.get_container()) {
       spdlog::trace("limits pressed");
       limits_panel.foreground();
+#ifndef TARGET_FLASHFORGE
     } else if (btn == tmc_tune_btn.get_container()) {
       spdlog::trace("tmc auto tune pressed");
       tmc_tune_panel.foreground();
     } else if (btn == tmc_status_btn.get_container()) {
       spdlog::trace("tmc metrics pressed");
       tmc_status_panel.foreground();
+#endif
     } else if (btn == power_devices_btn.get_container()) {
       spdlog::trace("power devices pressed");
       power_panel.foreground();

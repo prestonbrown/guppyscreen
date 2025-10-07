@@ -1,0 +1,59 @@
+# GuppyScreen Build Configuration Template
+#
+# Copy this file to .config and modify as needed, or run:
+#   make config
+#
+# This file is tracked in git to serve as documentation.
+# Your actual .config file is gitignored and local to your machine.
+
+# ==============================================================================
+# TARGET - Hardware platform to build for (REQUIRED)
+# ==============================================================================
+#
+# Valid values:
+#
+#   simulator   - Development build for macOS/Linux (DEFAULT)
+#                 • SDL2-based virtual display
+#                 • Can connect to remote or local virtual Moonraker
+#                 • Dynamic linking (static on macOS)
+#                 • Standard Klipper bed mesh calibration
+#                 • Includes TMC stepper tuning panels
+#                 • Input device: /dev/input/event0
+#
+#   pi          - Raspberry Pi / BTT Pad / Debian ARM
+#                 • Native build on ARM device (no cross-compilation)
+#                 • Framebuffer display (no X11/Wayland)
+#                 • Dynamic linking
+#                 • Standard Klipper bed mesh calibration
+#                 • Includes TMC stepper tuning panels
+#                 • Input device: /dev/input/event0
+#
+#   k1          - Creality K1 / K1 Max printers
+#                 • MIPS cross-compilation (mips-linux-gnu-)
+#                 • Static linking for embedded system
+#                 • Framebuffer display (no X11/Wayland)
+#                 • Standard Klipper bed mesh calibration
+#                 • Includes TMC stepper tuning panels
+#                 • Input device: /dev/input/event0
+#
+#   flashforge  - FlashForge Adventurer 5M / 5M Pro
+#                 • ARM cross-compilation (arm-unknown-linux-gnueabihf-)
+#                 • Dynamic linking
+#                 • Framebuffer display (no X11/Wayland)
+#                 • Custom AUTO_FULL_BED_LEVEL macro
+#                 • Universal input device: /dev/input/guppy
+#                 • TMC panels DISABLED (hardware doesn't have TMC drivers)
+#
+TARGET=simulator
+
+# ==============================================================================
+# Future configuration options (not yet implemented)
+# ==============================================================================
+#
+# These are placeholders for future extensibility:
+#
+# THEME=material              # UI theme: material (default) or zbolt
+# SCREEN_SIZE=standard        # standard (800x480) or small (480x320)
+# SCREEN_ROTATE=0             # Screen rotation: 0, 1, 2, or 3
+# VERSION=1.0.0               # Version string to embed in binary
+# CUSTOM_MACROS=path/to/file  # Path to custom macro definitions

@@ -1,0 +1,98 @@
+# UI Research Tools - Requirements
+#
+# Tools needed for automated screenshot extraction from PDFs, videos, and websites.
+# These tools are used by scripts in this directory to gather reference UI screenshots
+# for the GuppyScreen redesign project.
+#
+# Installation (macOS):
+#   brew install ffmpeg poppler imagemagick yt-dlp wget
+#
+# Installation (Debian/Ubuntu):
+#   sudo apt-get install ffmpeg poppler-utils imagemagick yt-dlp wget
+#
+# Installation (Arch):
+#   sudo pacman -S ffmpeg poppler imagemagick yt-dlp wget
+
+# ==============================================================================
+# Core Tools
+# ==============================================================================
+
+ffmpeg          # Video processing and frame extraction
+                # Used by: extract-video-frames.sh
+                # Purpose: Extract frames from video files at specified intervals
+                # Version: 8.0+ recommended
+
+poppler         # PDF rendering library (includes pdfimages)
+                # Used by: extract-pdf-images.sh
+                # Purpose: Extract embedded images from PDF manuals
+                # Version: 25.09+ recommended
+                # Binary: pdfimages
+
+yt-dlp          # YouTube video downloader
+                # Used by: extract-video-frames.sh
+                # Purpose: Download YouTube review videos for frame extraction
+                # Version: Latest recommended (actively maintained)
+                # Alternative: youtube-dl (older, less maintained)
+
+wget            # Web content downloader
+                # Used by: Manual web scraping commands
+                # Purpose: Download images from review websites
+                # Version: Any recent version
+                # Alternative: curl (requires different command syntax)
+
+# ==============================================================================
+# Optional Tools (for advanced usage)
+# ==============================================================================
+
+imagemagick     # Image manipulation toolkit
+                # Used by: Manual image processing (convert, identify)
+                # Purpose: Resize, convert, or analyze extracted images
+                # Version: 7.1+ recommended
+                # Examples:
+                #   - Convert PDF to images: convert -density 300 manual.pdf output_%03d.png
+                #   - Resize images: convert input.png -resize 800x600 output.png
+                #   - Get image info: identify image.png
+
+# ==============================================================================
+# Verification Commands
+# ==============================================================================
+#
+# After installation, verify tools are available:
+#
+#   ffmpeg -version
+#   pdfimages -v
+#   yt-dlp --version
+#   wget --version
+#   convert -version  # if imagemagick installed
+#
+# ==============================================================================
+# Platform-Specific Notes
+# ==============================================================================
+#
+# macOS:
+#   - Use Homebrew for all tools: brew install <package>
+#   - poppler package includes pdfimages binary
+#   - imagemagick is optional but recommended
+#
+# Linux:
+#   - Package names may vary by distribution
+#   - Debian/Ubuntu: use apt-get or apt
+#   - Arch: use pacman
+#   - Fedora: use dnf
+#
+# Windows (WSL):
+#   - Use WSL2 with Ubuntu/Debian
+#   - Follow Linux installation instructions
+#   - Or use Windows package managers: scoop, chocolatey
+#
+# ==============================================================================
+# Installed Versions (this system)
+# ==============================================================================
+#
+# ffmpeg: 8.0_1
+# poppler: 25.09.1
+# imagemagick: 7.1.2-5
+# yt-dlp: (pre-installed)
+# wget: (pre-installed)
+#
+# Last verified: 2025-10-07

@@ -1,0 +1,23 @@
+diff --git a/lv_drivers.mk b/lv_drivers.mk
+index 97d4621..9cbb2c7 100644
+--- a/lv_drivers.mk
++++ b/lv_drivers.mk
+@@ -4,7 +4,16 @@ override CFLAGS := -I$(LVGL_DIR) $(CFLAGS)
+ 
+ CSRCS += $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/*.c)
+ CSRCS += $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/wayland/*.c)
+-CSRCS += $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/indev/*.c)
++
++# Exclude Linux-specific drivers on macOS (require Linux headers)
++UNAME_S := $(shell uname -s)
++ifeq ($(UNAME_S),Darwin)
++  CSRCS += $(filter-out %/evdev.c, $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/indev/*.c))
++  CSRCS += $(filter-out %/fbdev.c, $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/display/*.c))
++else
++  CSRCS += $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/indev/*.c)
++  CSRCS += $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/display/*.c)
++endif
++
+ CSRCS += $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/gtkdrv/*.c)
+-CSRCS += $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/display/*.c)
+ CSRCS += $(wildcard $(LVGL_DIR)/$(LV_DRIVERS_DIR_NAME)/sdl/*.c)

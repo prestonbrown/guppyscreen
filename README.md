@@ -89,6 +89,7 @@ cd guppyscreen
 
 # Apply required patches
 (cd lv_drivers/ && git apply ../patches/0001-lv_driver_fb_ioctls.patch)
+(cd lv_drivers/ && git apply ../patches/0003-lv_drivers_exclude_linux_on_macos.patch)
 (cd spdlog/ && git apply ../patches/0002-spdlog_fmt_initializer_list.patch)
 
 # Configure your target hardware

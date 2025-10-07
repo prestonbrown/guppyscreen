@@ -146,6 +146,15 @@ LDLIBS   := -lm
 DEFINES += -D _GNU_SOURCE -DSPDLOG_COMPILED_LIB
 
 #===============================================================================
+# Version Management
+#===============================================================================
+
+# Read version from VERSION file if it exists
+ifneq ($(wildcard VERSION),)
+  GUPPYSCREEN_VERSION := $(shell cat VERSION | tr -d '\n')
+endif
+
+#===============================================================================
 # Optional Build Flags (legacy support)
 #===============================================================================
 

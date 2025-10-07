@@ -1,7 +1,7 @@
 {
   "default_printer": "simulator",
   "display_rotate": 0,
-  "log_path": "./build/logs/guppyscreen.log",
+  "log_path": "../logs/guppyscreen.log",
   "printers": {
     "simulator": {
       "default_macros": {
@@ -18,6 +18,6 @@
       "moonraker_port": 7125
     }
   },
-  "thumbnail_path": "./build/thumbnails",
+  "thumbnail_path": "../thumbnails",
   "wpa_supplicant": "/var/run/wpa_supplicant"
 }

@@ -449,7 +449,11 @@
 #endif
 
 #if USE_EVDEV || USE_BSD_EVDEV
-#  define EVDEV_NAME   "/dev/input/event0"        /*You can use the "evtest" Linux tool to get the list of devices and test them*/
+#  ifdef TARGET_FLASHFORGE
+#    define EVDEV_NAME   "/dev/input/guppy"       /*FlashForge FF5M uses universal input device*/
+#  else
+#    define EVDEV_NAME   "/dev/input/event0"      /*You can use the "evtest" Linux tool to get the list of devices and test them*/
+#  endif
 #  define EVDEV_SWAP_AXES         0               /*Swap the x and y axes of the touchscreen*/
 
 #  define EVDEV_CALIBRATE         1               /*Scale and offset the touchscreen coordinates by using maximum and minimum values for each axis*/
@@ -947,7 +951,11 @@
 #endif
 
 #if USE_EVDEV || USE_BSD_EVDEV
-#  define EVDEV_NAME   "/dev/input/event0"        /*You can use the "evtest" Linux tool to get the list of devices and test them*/
+#  ifdef TARGET_FLASHFORGE
+#    define EVDEV_NAME   "/dev/input/guppy"       /*FlashForge FF5M uses universal input device*/
+#  else
+#    define EVDEV_NAME   "/dev/input/event0"      /*You can use the "evtest" Linux tool to get the list of devices and test them*/
+#  endif
 #  define EVDEV_SWAP_AXES         0               /*Swap the x and y axes of the touchscreen*/
 
 #  define EVDEV_CALIBRATE         1               /*Scale and offset the touchscreen coordinates by using maximum and minimum values for each axis*/

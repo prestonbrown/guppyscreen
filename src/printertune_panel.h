@@ -6,8 +6,10 @@
 #include "bedmesh_panel.h"
 #include "inputshaper_panel.h"
 #include "belts_calibration_panel.h"
+#ifndef TARGET_FLASHFORGE
 #include "tmc_tune_panel.h"
 #include "tmc_status_panel.h"
+#endif
 #include "power_panel.h"
 #include "button_container.h"
 #include "lvgl/lvgl.h"
@@ -36,18 +38,22 @@ class PrinterTunePanel {
   LimitsPanel limits_panel;
   InputShaperPanel inputshaper_panel;
   BeltsCalibrationPanel belts_calibration_panel;
+#ifndef TARGET_FLASHFORGE
   TmcTunePanel tmc_tune_panel;
   TmcStatusPanel tmc_status_panel;
+#endif
   PowerPanel power_panel;
-  ButtonContainer bedmesh_btn;  
+  ButtonContainer bedmesh_btn;
   ButtonContainer finetune_btn;
   ButtonContainer inputshaper_btn;
   ButtonContainer belts_calibration_btn;
   ButtonContainer limits_btn;
+#ifndef TARGET_FLASHFORGE
   ButtonContainer tmc_tune_btn;
   ButtonContainer tmc_status_btn;
+#endif
   ButtonContainer power_devices_btn;
-  
+
 };
 
 #endif // __PRINTERTUNE_PANEL_H__

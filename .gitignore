@@ -5,3 +5,5 @@ build/
 *.a
 /.idea
 /.vscode
+.DS_Store
+/.config

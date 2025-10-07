@@ -174,7 +174,7 @@ GuppyScreen is built with modern C++17 and leverages:
 
 ## 📄 License
 
-This project is licensed under the same terms as the original GuppyScreen project. See [LICENSE](LICENSE) for details.
+This project is licensed under the GNU General Public License v3.0 (GPLv3). See [LICENSE](LICENSE) for details.
 
 ---
 

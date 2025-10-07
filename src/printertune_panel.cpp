@@ -88,9 +88,9 @@ PrinterTunePanel::PrinterTunePanel(KWebSocketClient &c, std::mutex &l, lv_obj_t 
 }
 
 PrinterTunePanel::~PrinterTunePanel() {
-  if (cont != NULL) {
+  if (cont != nullptr) {
     lv_obj_del(cont);
-    cont = NULL;
+    cont = nullptr;
   }
 }
 

@@ -12,14 +12,75 @@ Dependencies:
  - [wpa_supplicant](https://w1.fi/wpa_supplicant/)
    Handles wireless connections
 
-## Toolchains
-The Guppy Screen uses features (filesystem) from C++17, so a gcc/g++ version (7.2+) with C++17 support is required.
+## Build System
 
-### Environment Variables
-`CROSS_COMPILE` - The prefix to the toolchain architecture, e.g. `mips-linux-gnu-`
-`SIMULATION` - Define it to build with SDL for running on your local machine.
-`ZBOLT` - Define it to use the Z-Bolt icon set. By default the build uses the Material Design Icons.
-`GUPPYSCREEN_VERSION` - Version string displayed in the System Panel in the UI.
+GuppyScreen uses a menu-driven configuration system to select your target hardware platform before building.
+
+### Quick Start
+
+1. Configure your build target:
+   ```bash
+   make config
+   ```
+
+2. Build for your selected target:
+   ```bash
+   make build
+   ```
+
+### Build Targets
+
+The build system supports four target platforms:
+
+- **simulator** (default) - macOS/Linux development build with SDL2
+  - Uses SDL2-based virtual display
+  - Can connect to remote or local virtual Moonraker
+  - Dynamic linking (static on macOS)
+  - Standard Klipper bed mesh calibration
+  - Includes TMC stepper tuning panels
+
+- **pi** - Raspberry Pi / BTT Pad / Debian ARM
+  - Native build on ARM device (no cross-compilation)
+  - Framebuffer display (no X11/Wayland)
+  - Dynamic linking
+  - Standard Klipper bed mesh calibration
+  - Includes TMC stepper tuning panels
+
+- **k1** - Creality K1 / K1 Max printers
+  - MIPS cross-compilation (mips-linux-gnu-)
+  - Static linking for embedded system
+  - Framebuffer display (no X11/Wayland)
+  - Standard Klipper bed mesh calibration
+  - Includes TMC stepper tuning panels
+
+- **flashforge** - FlashForge Adventurer 5M / 5M Pro
+  - ARM cross-compilation (arm-unknown-linux-gnueabihf-)
+  - Dynamic linking
+  - Framebuffer display (no X11/Wayland)
+  - Custom AUTO_FULL_BED_LEVEL macro
+  - Universal input device (/dev/input/guppy)
+  - TMC panels DISABLED (hardware limitation)
+
+The selected target is saved to `.config` (gitignored) and persists across builds.
+
+### Configuration File
+
+Your build configuration is stored in `.config` at the project root. You can:
+- View the template with documentation: `.config.example`
+- Reconfigure anytime: `make config`
+- Manually edit `.config` to change targets
+
+### Legacy Environment Variables
+
+The following environment variables are still supported for advanced use:
+- `GUPPYSCREEN_VERSION` - Version string displayed in the System Panel
+- `GUPPY_THEME=zbolt` - Use Z-Bolt icon set instead of Material Design Icons
+- `GUPPY_SMALL_SCREEN` - Enable small screen support (480x320)
+- `GUPPY_ROTATE` - Enable screen rotation
+
+## Toolchains
+
+GuppyScreen uses C++17 features (filesystem), so gcc/g++ version 7.2+ with C++17 support is required.
 
 ### Build Environment
 
@@ -49,90 +110,91 @@ Clone the guppyscreen repo (and submodules) and apply a couple of patches locall
 2. `(cd lv_drivers/ && git apply ../patches/0001-lv_driver_fb_ioctls.patch)`
 3. `(cd spdlog/ && git apply ../patches/0002-spdlog_fmt_initializer_list.patch)`
 
-### Mipsel (Ingenic X2000E) - specific to the K1 SoC
-Building for the K1/Max
+### Building for Different Targets
 
-1. `export CROSS_COMPILE=mips-linux-gnu-`
-2. `make clean && make -j$(nproc) build`
+The new build system uses `make config` to select your target, then `make build` to compile.
 
-After an initial `make build`, you can make changes to src guppy files and then use `make` to compile the files that need compiling.
+#### Simulator (macOS/Linux Development)
 
-The executable is ./build/bin/guppyscreen
+For local development and testing without physical hardware:
 
-### x86_64 (Intel/AMD)
-Building and running Guppy Screen on your local machine speeds up development. Changes can be tested on the local machine before rebuilding for the other architectures.
-
-1. `unset CROSS_COMPILE`
-2. `make clean && make -j$(nproc) build`
-
-After an initial `make build`, you can make changes to src guppy files and then use `make` to compile the files that need compiling.
-
-The executable is ./build/bin/guppyscreen
-
-### macOS (Apple Silicon / Intel)
-Building on macOS requires some additional setup and considerations:
-
-#### Prerequisites
+**Prerequisites (macOS):**
 1. Install Xcode Command Line Tools: `xcode-select --install`
-2. Install Homebrew if not already installed: https://brew.sh
-3. Install SDL2: `brew install sdl2`
-4. Install CMake: `brew install cmake`
+2. Install Homebrew: https://brew.sh
+3. Install dependencies: `brew install sdl2 cmake`
 
-#### Build Steps
-1. Clone the repo with submodules:
-   ```bash
-   git clone --recursive https://github.com/ballaswag/guppyscreen && cd guppyscreen
-   ```
+**Prerequisites (Linux):**
+- Ubuntu/Debian: `sudo apt-get install -y build-essential cmake libsdl2-dev`
+- Arch: `sudo pacman -S base-devel cmake sdl2`
 
-2. Initialize submodules if not already done:
-   ```bash
-   git submodule update --init --recursive
-   ```
+**Build Steps:**
+```bash
+make config  # Select "1) simulator"
+make build
+```
 
-3. Apply patches:
-   ```bash
-   cd lv_drivers/ && git apply ../patches/0001-lv_driver_fb_ioctls.patch && cd ..
-   cd spdlog/ && git apply ../patches/0002-spdlog_fmt_initializer_list.patch && cd ..
-   ```
-
-4. Configure libhv for macOS:
-   ```bash
-   cd libhv && ./configure && cd ..
-   ```
-
-5. Build:
-   ```bash
-   unset CROSS_COMPILE
-   make build
-   ```
-
-After the initial build, incremental builds can be done with just `make`.
-
-#### Configuration
 The build process automatically:
-- Copies a simulator-specific `guppyconfig.json` to `build/bin/` (for non-cross-compile builds)
+- Copies `guppyconfig-simulator.json` to `build/bin/guppyconfig.json`
 - Creates `build/logs/` and `build/thumbnails/` directories
-- Configures paths relative to the build directory
+- Uses static linking on macOS, dynamic on Linux
 
-The default simulator config is ready to use and points to:
-- `log_path`: `./build/logs/guppyscreen.log`
-- `thumbnail_path`: `./build/thumbnails`
-- `moonraker_host`: `127.0.0.1`
-- `moonraker_port`: `7125`
+The executable is `./build/bin/guppyscreen`
 
-To connect to a different Moonraker instance, edit `build/bin/guppyconfig.json` and update the `moonraker_host` and `moonraker_port` values.
+**macOS Notes:**
+- Automatically detects macOS and uses appropriate linking
+- Includes platform-specific code for filesystem, networking, and executable path detection
+- Compatible with both Apple Silicon and Intel Macs
 
-#### Notes
-- The build automatically detects macOS and uses dynamic linking (simulator mode)
-- A default `guppyconfig.json` is copied to `build/bin/` during the build
-- The code includes platform-specific `#ifdef __APPLE__` conditionals for:
-  - Using `<filesystem>` instead of `<experimental/filesystem>`
-  - Using `<net/if.h>` instead of `<linux/if.h>`
-  - Using `AF_LINK` instead of `AF_PACKET` for network interfaces
-  - Not requiring `-latomic` or `-lstdc++fs` linker flags
-- The LVGL canvas API has been updated for compatibility with LVGL v8.3
+#### Raspberry Pi / BTT Pad (Native ARM Build)
 
-The executable is ./build/bin/guppyscreen
+Build directly on the target device:
+
+```bash
+make config  # Select "2) pi"
+make build
+```
+
+This performs a native ARM build with framebuffer support.
+
+#### Creality K1/K1 Max (MIPS Cross-Compilation)
+
+**Prerequisites:**
+1. Download mips-gcc720 toolchain: [here](https://github.com/ballaswag/k1-discovery/releases/download/1.0.0/mips-gcc720-glibc229.tar.gz)
+2. Extract and add to PATH:
+   ```bash
+   tar xf mips-gcc720-glibc229.tar.gz
+   export PATH=<path-to-mips-toolchain/bin>:$PATH
+   ```
+
+**Build Steps:**
+```bash
+make config  # Select "3) k1"
+make build
+```
+
+Uses static linking for the embedded environment.
+
+#### FlashForge Adventurer 5M/Pro (ARM Cross-Compilation)
+
+**Prerequisites:**
+- ARM cross-compilation toolchain: `arm-unknown-linux-gnueabihf-`
+
+**Build Steps:**
+```bash
+make config  # Select "4) flashforge"
+make build
+```
+
+This target includes FlashForge-specific adaptations:
+- Custom `AUTO_FULL_BED_LEVEL` bed mesh command
+- Universal input device (`/dev/input/guppy`)
+- TMC panels disabled (hardware doesn't have TMC drivers)
+
+The executable is `./build/bin/guppyscreen` for all targets.
+
+### Incremental Builds
+
+After an initial `make build`, you can make changes to source files and use `make` to compile only the files that need recompiling.
 
 ### Simulation
 Guppy Screen default configurations (guppyconfig.json) is configured for the K1/Max. In order to run it remotely as a simulator build, a few thing needs to be setup.

@@ -75,6 +75,7 @@ ssh into your K1/Max and run the following command:
 :white_check_mark: File Browser\
 :white_check_mark: Supports multiple screen resolutions\
 :white_check_mark: Cross platform releases (MIPS/ARM/x86)\
+:white_check_mark: Multi-platform support (K1, FlashForge, Raspberry Pi, Simulator)\
 :white_check_mark: TMC Metrics\
 :white_check_mark: Multi-Printer support
 

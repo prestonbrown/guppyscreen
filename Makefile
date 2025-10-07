@@ -13,13 +13,24 @@ config:
 # Ensure configuration exists for build targets
 .config:
 	@echo "============================================================"
-	@echo "  No build configuration found!"
-	@echo "  Please run 'make config' to select your target hardware."
+	@echo "  No target has been specified."
+	@echo "  Run 'make config' first to select your target hardware."
 	@echo "============================================================"
 	@exit 1
 
-# Default target if no configuration exists
-.DEFAULT_GOAL := help
+# Default target - check for configuration first
+.DEFAULT_GOAL := default
+
+.PHONY: default
+default:
+	@if [ ! -f .config ]; then \
+		echo "============================================================"; \
+		echo "  No target has been specified."; \
+		echo "  Run 'make config' first to select your target hardware."; \
+		echo "============================================================"; \
+		exit 1; \
+	fi
+	@$(MAKE) -j$(NPROC) compile
 
 help:
 	@echo "GuppyScreen Build System"
@@ -256,7 +267,7 @@ COMPILE_CXX = $(CXX) $(CFLAGS) $(INC) $(DEFINES)
 # Build Rules
 #===============================================================================
 
-all: default
+all: compile
 
 libhv.a:
 	$(MAKE) -C libhv -j$(NPROC) libhv
@@ -291,7 +302,7 @@ $(BUILD_OBJ_DIR)/kd_graphic_mode.o: src/kd_graphic_mode.cpp
 kd_graphic_mode: $(BUILD_OBJ_DIR)/kd_graphic_mode.o
 	$(CC) -o $(BUILD_BIN_DIR)/kd_graphic_mode $(BUILD_OBJ_DIR)/kd_graphic_mode.o
 
-default: $(TARGETS)
+compile: $(TARGETS)
 	@mkdir -p $(dir $(BUILD_BIN_DIR)/)
 	$(CXX) -o $(BUILD_BIN_DIR)/$(BIN) $(TARGETS) $(LDFLAGS) $(LDLIBS)
 	@echo "CXX $<"

@@ -328,6 +328,15 @@ compile: $(TARGETS)
 	@mkdir -p $(dir $(BUILD_BIN_DIR)/)
 	$(CXX) -o $(BUILD_BIN_DIR)/$(BIN) $(TARGETS) $(LDFLAGS) $(LDLIBS)
 	@echo "CXX $<"
+	@echo "Setting up configuration..."
+ifeq ($(TARGET),simulator)
+	@echo "Copying simulator config and creating directories..."
+	@mkdir -p $(BUILD_DIR)/logs $(BUILD_DIR)/thumbnails
+	@cp -n guppyconfig-simulator.json $(BUILD_BIN_DIR)/guppyconfig.json 2>/dev/null || true
+else
+	@echo "Copying production config..."
+	@cp -n debian/guppyconfig.json $(BUILD_BIN_DIR)/guppyconfig.json 2>/dev/null || true
+endif
 
 #===============================================================================
 # Clean Targets

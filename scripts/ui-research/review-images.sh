@@ -75,8 +75,11 @@ fi
 # Get absolute path
 INPUT_DIR=$(cd "$INPUT_DIR" && pwd)
 
-# Find all images
-mapfile -t IMAGES < <(find "$INPUT_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.tif" -o -iname "*.tiff" \) | sort)
+# Find all images (compatible with older bash versions)
+IMAGES=()
+while IFS= read -r -d '' file; do
+    IMAGES+=("$file")
+done < <(find "$INPUT_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.tif" -o -iname "*.tiff" \) -print0 | sort -z)
 
 TOTAL=${#IMAGES[@]}
 

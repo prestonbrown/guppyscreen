@@ -302,9 +302,43 @@
 - **Icon style:** Stick with Material Design Icons or explore alternatives?
 - **Navigation pattern:** Bottom nav? Side nav? Card-based? Tab-based?
 
+### Screenshot Collection Strategy
+
+**Directory Structure Created:**
+- `docs/ui-research/` with subdirectories for each printer
+- Organized by screen type: main-screen, print-status, file-browser, settings, temperature, calibration, misc
+- See `docs/ui-research/README.md` for organization guidelines
+- See `docs/ui-research/SOURCES.md` for all source links found
+
+**Sources Identified:**
+
+1. **Bambu Lab X1C:**
+   - Official PDF: https://cdn1.bambulab.com/documentation/Quick Start Guide for X1-Carbon Combo.pdf
+   - Wiki: https://wiki.bambulab.com/en/x1/manual/screen-operation
+   - Reviews: Tom's Hardware, The Gadgeteer (2025)
+   - Need: YouTube videos with screen walkthroughs
+
+2. **Creality K1:**
+   - ✅ 3DWithUs Review (confirmed screenshots): https://3dwithus.com/creality-k1-review-3d-printer-testing-settings-and-tips
+   - Tom's Hardware K1 Review
+   - HowToMechatronics K1 Max Review
+   - Need: Official manual screenshots
+
+3. **FlashForge AD5M Pro:**
+   - Official manual (72 pages): https://www.manua.ls/flashforge/adventurer-5m-pro/manual
+   - Anton Mansson video review: https://www.antonmansson.com/videos/flashforge-adventurer-5m-pro-review-video
+   - Need: Extract screenshots from video reviews
+
+**Next Manual Steps (requires downloading/viewing):**
+1. Download PDF manuals and extract UI screenshots
+2. Watch YouTube video reviews and capture key frames showing UI
+3. Visit review sites and save embedded photos
+4. Organize screenshots into directory structure
+5. Document source and firmware version for each image
+
 ### Next Session Tasks
-1. Search YouTube for video walkthroughs of all three reference UIs
-2. Create screenshot collection (organized by UI type and screen function)
+1. ~~Search YouTube for video walkthroughs~~ ✅ Sources documented
+2. Download/capture screenshots from identified sources (manual step)
 3. Begin comparative analysis document
 4. Start sketching potential layouts for GuppyScreen redesign
 

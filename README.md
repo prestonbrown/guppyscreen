@@ -157,7 +157,7 @@ GuppyScreen is built with modern C++17 and leverages:
 
 ### Continued Development
 - **probielodan** - Initial fork and continued development (2024)
-- **Preston Brown** - macOS support, build system refactoring, current maintenance
+- **Preston Brown** - Bed mesh visualization, macOS support, build system refactoring, current maintenance
 - **[Alexander (DrA1ex)](https://github.com/DrA1ex/guppyscreen)** - FlashForge integration
 
 ### Inspiration & Resources

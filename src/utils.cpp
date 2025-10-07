@@ -13,6 +13,7 @@
 #ifdef __APPLE__
 #include <net/if.h>
 #include <net/if_dl.h>
+#include <mach-o/dyld.h>
 #else
 #include <linux/if.h>
 #endif
@@ -204,6 +205,19 @@ namespace KUtils {
     }
 
     return "";
+  }
+
+  std::string get_exe_dir() {
+#ifdef __APPLE__
+    char path[1024];
+    uint32_t size = sizeof(path);
+    if (_NSGetExecutablePath(path, &size) == 0) {
+      return fs::canonical(path).parent_path().string();
+    }
+    return ".";
+#else
+    return fs::canonical("/proc/self/exe").parent_path().string();
+#endif
   }
 
   template <typename Out>

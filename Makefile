@@ -29,7 +29,9 @@ ifndef CROSS_COMPILE
 # macOS doesn't need -latomic and has filesystem built into libc++
 UNAME_S := $(shell uname -s)
 ifeq ($(UNAME_S),Darwin)
-LDFLAGS 		?= -lm -Llibhv/lib -Lspdlog/build -lhv -lpthread -Lwpa_supplicant/wpa_supplicant/ -lwpa_client -lspdlog
+# On macOS, use static libraries to avoid runtime dependency issues
+# Need to link Security framework for SSL support in libhv
+LDFLAGS 		?= -lm libhv/lib/libhv.a spdlog/build/libspdlog.a wpa_supplicant/wpa_supplicant/libwpa_client.a -lpthread -framework Security -framework CoreFoundation
 else
 LDFLAGS 		?= -lm -Llibhv/lib -Lspdlog/build -lhv -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ -lwpa_client -lstdc++fs -lspdlog
 endif

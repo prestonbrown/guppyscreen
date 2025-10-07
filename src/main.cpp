@@ -8,6 +8,7 @@
 #include <pthread.h>
 #include <time.h>
 #include <sys/time.h>
+#include <iostream>
 #ifdef __APPLE__
 #include <filesystem>
 namespace fs = std::filesystem;
@@ -31,6 +32,7 @@ static void hal_init(lv_color_t p, lv_color_t s);
 #include "guppyscreen.h"
 #include "hv/hlog.h"
 #include "config.h"
+#include "utils.h"
 
 #include <algorithm>
 
@@ -38,14 +40,44 @@ using namespace hv;
 
 #define DISP_BUF_SIZE (128 * 1024)
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    // Parse command line arguments
+    std::string config_file;
+    for (int i = 1; i < argc; i++) {
+        std::string arg = argv[i];
+        if (arg == "-c" || arg == "--config") {
+            if (i + 1 < argc) {
+                config_file = argv[++i];
+            } else {
+                spdlog::error("Error: {} requires a file path argument", arg);
+                return 1;
+            }
+        } else if (arg == "-h" || arg == "--help") {
+            std::cout << "Usage: " << argv[0] << " [options]\n"
+                      << "Options:\n"
+                      << "  -c, --config <file>  Path to configuration file\n"
+                      << "  -h, --help           Show this help message\n";
+            return 0;
+        } else {
+            spdlog::error("Error: Unknown option {}", arg);
+            return 1;
+        }
+    }
+
     // config
-    spdlog::debug("current path {}", std::string(fs::canonical("/proc/self/exe").parent_path()));
+    auto exe_dir = KUtils::get_exe_dir();
+    spdlog::debug("current path {}", exe_dir);
 
     Config *conf = Config::get_instance();
-    auto config_path = fs::canonical("/proc/self/exe").parent_path() / "guppyconfig.json";
-    conf->init(config_path.string(), "/usr/data/printer_data/thumbnails");
+
+    // Use provided config file or default to exe_dir/guppyconfig.json
+    if (config_file.empty()) {
+        config_file = (fs::path(exe_dir) / "guppyconfig.json").string();
+    }
+
+    spdlog::debug("using config file: {}", config_file);
+    conf->init(config_file, "/usr/data/printer_data/thumbnails");
 
     GuppyScreen::init(hal_init);
     GuppyScreen::loop();

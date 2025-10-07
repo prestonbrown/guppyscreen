@@ -22,7 +22,10 @@ BedMeshPanel::BedMeshPanel(KWebSocketClient &c, std::mutex &l)
   , prompt(lv_obj_create(lv_scr_act()))
   , top_cont(lv_obj_create(cont))
   , mesh_table(lv_table_create(top_cont))
-  , profile_cont(lv_obj_create(top_cont))
+  , mesh_canvas(lv_canvas_create(top_cont))
+  , view_angle_btn(lv_btn_create(top_cont))
+  , display_mode_btn(lv_btn_create(top_cont))
+  , profile_cont(lv_table_create(top_cont))
   , profile_table(lv_table_create(profile_cont))
   , profile_info(lv_table_create(profile_cont))
   , controls_cont(lv_obj_create(cont))
@@ -33,6 +36,9 @@ BedMeshPanel::BedMeshPanel(KWebSocketClient &c, std::mutex &l)
   , msgbox(lv_obj_create(prompt))
   , input(lv_textarea_create(msgbox))
   , kb(lv_keyboard_create(prompt))
+  , current_view_angle(0)
+  , canvas_draw_buf(nullptr)
+  , show_3d_view(true)
 {
   lv_obj_move_background(cont);
 
@@ -112,6 +118,37 @@ BedMeshPanel::BedMeshPanel(KWebSocketClient &c, std::mutex &l)
   lv_obj_add_event_cb(mesh_table, &BedMeshPanel::_mesh_draw_cb, LV_EVENT_DRAW_PART_BEGIN, this);
   lv_obj_add_event_cb(profile_table, &BedMeshPanel::_handle_profile_action, LV_EVENT_VALUE_CHANGED, this);
 
+  // Setup 3D canvas
+  auto canvas_width = (int)(380 * scale);
+  auto canvas_height = (int)(340 * hscale);
+
+  uint32_t buf_size = LV_CANVAS_BUF_SIZE_TRUE_COLOR(canvas_width, canvas_height);
+  canvas_draw_buf = lv_mem_alloc(buf_size);
+  lv_canvas_set_buffer(mesh_canvas, canvas_draw_buf, canvas_width, canvas_height, LV_IMG_CF_TRUE_COLOR);
+  lv_obj_set_size(mesh_canvas, canvas_width, canvas_height);
+  lv_obj_center(mesh_canvas);
+
+  // Setup display mode toggle button
+  lv_obj_set_size(display_mode_btn, 80, 30);
+  lv_obj_align_to(display_mode_btn, mesh_canvas, LV_ALIGN_OUT_TOP_LEFT, 0, -5);
+  lv_obj_t *mode_label = lv_label_create(display_mode_btn);
+  lv_label_set_text(mode_label, "Table");  // Shows "Table" since we start in 3D mode
+  lv_obj_center(mode_label);
+  lv_obj_add_event_cb(display_mode_btn, &BedMeshPanel::_handle_display_mode_toggle, LV_EVENT_CLICKED, this);
+
+  // Setup view angle button (only visible in 3D mode)
+  lv_obj_set_size(view_angle_btn, 80, 30);
+  lv_obj_align_to(view_angle_btn, mesh_canvas, LV_ALIGN_OUT_TOP_RIGHT, 0, -5);
+  lv_obj_t *angle_label = lv_label_create(view_angle_btn);
+  lv_label_set_text(angle_label, "Rotate");
+  lv_obj_center(angle_label);
+  lv_obj_add_event_cb(view_angle_btn, &BedMeshPanel::_handle_view_angle_change, LV_EVENT_CLICKED, this);
+
+  // Initially show 3D view
+  lv_obj_add_flag(mesh_table, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(mesh_canvas, LV_OBJ_FLAG_HIDDEN);
+  lv_obj_clear_flag(view_angle_btn, LV_OBJ_FLAG_HIDDEN);
+
   // prompt
   lv_obj_set_style_pad_all(prompt, 0, 0);
   lv_obj_set_size(prompt, LV_PCT(100), LV_PCT(100));
@@ -163,6 +200,11 @@ BedMeshPanel::BedMeshPanel(KWebSocketClient &c, std::mutex &l)
 }
 
 BedMeshPanel::~BedMeshPanel() {
+  if (canvas_draw_buf != nullptr) {
+    lv_mem_free(canvas_draw_buf);
+    canvas_draw_buf = nullptr;
+  }
+
   if (cont != NULL) {
     lv_obj_del(cont);
     cont = NULL;
@@ -209,6 +251,9 @@ void BedMeshPanel::refresh_views(json &bm) {
       }
 
       mesh = mesh_json.template get<std::vector<std::vector<double>>>();
+
+      // Draw the 3D mesh
+      draw_3d_mesh();
 
       // calculate cell width
       if (mesh.size() > 0 && mesh[0].size() > 0) {
@@ -461,6 +506,116 @@ void BedMeshPanel::mesh_draw_cb(lv_event_t *e)
 
     dsc->rect_dsc->bg_color = color;
     dsc->rect_dsc->bg_opa = LV_OPA_90;
+  }
+}
+
+void BedMeshPanel::draw_3d_mesh()
+{
+  if (mesh.empty() || canvas_draw_buf == nullptr) {
+    return;
+  }
+
+  lv_canvas_fill_bg(mesh_canvas, lv_color_white(), LV_OPA_COVER);
+
+  lv_img_dsc_t *img_dsc = lv_canvas_get_img(mesh_canvas);
+  int canvas_width = img_dsc->header.w;
+  int canvas_height = img_dsc->header.h;
+
+  int mesh_rows = mesh.size();
+  int mesh_cols = mesh[0].size();
+
+  int center_x = canvas_width / 2;
+  int center_y = canvas_height / 2;
+
+  double scale_factor = std::min(canvas_width / (mesh_cols * 2.0), canvas_height / (mesh_rows * 2.0)) * 0.8;
+
+  double cos_angle = 1.0, sin_angle = 0.0;
+  switch (current_view_angle) {
+    case 90:
+      cos_angle = 0.0;
+      sin_angle = 1.0;
+      break;
+    case 180:
+      cos_angle = -1.0;
+      sin_angle = 0.0;
+      break;
+    case 270:
+      cos_angle = 0.0;
+      sin_angle = -1.0;
+      break;
+  }
+
+  for (int row = 0; row < mesh_rows - 1; row++) {
+    for (int col = 0; col < mesh_cols - 1; col++) {
+      lv_point_t points[4];
+
+      for (int i = 0; i < 4; i++) {
+        int r = row + (i >> 1);
+        int c = col + (i & 1);
+
+        double mesh_x = (c - mesh_cols / 2.0) * scale_factor;
+        double mesh_y = (r - mesh_rows / 2.0) * scale_factor;
+        double mesh_z = mesh[r][c] * scale_factor * 10;
+
+        double rotated_x = mesh_x * cos_angle - mesh_y * sin_angle;
+        double rotated_y = mesh_x * sin_angle + mesh_y * cos_angle;
+
+        double iso_x = (rotated_x - rotated_y) * 0.866;
+        double iso_y = (rotated_x + rotated_y) * 0.5 - mesh_z;
+
+        points[i].x = center_x + (int)iso_x;
+        points[i].y = center_y + (int)iso_y;
+      }
+
+      double avg_height = (mesh[row][col] + mesh[row][col+1] +
+                          mesh[row+1][col] + mesh[row+1][col+1]) / 4.0;
+      lv_color_t quad_color = color_gradient(avg_height);
+
+      lv_draw_rect_dsc_t rect_dsc;
+      lv_draw_rect_dsc_init(&rect_dsc);
+      rect_dsc.bg_color = quad_color;
+      rect_dsc.bg_opa = LV_OPA_70;
+      rect_dsc.border_color = lv_color_black();
+      rect_dsc.border_width = 1;
+      rect_dsc.border_opa = LV_OPA_50;
+
+      lv_area_t area;
+      area.x1 = std::min({points[0].x, points[1].x, points[2].x, points[3].x});
+      area.y1 = std::min({points[0].y, points[1].y, points[2].y, points[3].y});
+      area.x2 = std::max({points[0].x, points[1].x, points[2].x, points[3].x});
+      area.y2 = std::max({points[0].y, points[1].y, points[2].y, points[3].y});
+
+      if (area.x1 >= 0 && area.y1 >= 0 && area.x2 < canvas_width && area.y2 < canvas_height) {
+        lv_canvas_draw_rect(mesh_canvas, area.x1, area.y1,
+                           area.x2 - area.x1 + 1, area.y2 - area.y1 + 1, &rect_dsc);
+      }
+    }
+  }
+}
+
+void BedMeshPanel::handle_view_angle_change(lv_event_t *event)
+{
+  current_view_angle = (current_view_angle + 90) % 360;
+  if (show_3d_view) {
+    draw_3d_mesh();
+  }
+}
+
+void BedMeshPanel::handle_display_mode_toggle(lv_event_t *event)
+{
+  show_3d_view = !show_3d_view;
+
+  if (show_3d_view) {
+    lv_obj_add_flag(mesh_table, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(mesh_canvas, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(view_angle_btn, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(lv_obj_get_child(display_mode_btn, 0), "Table");
+    draw_3d_mesh();
+  } else {
+    lv_obj_add_flag(mesh_canvas, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_clear_flag(mesh_table, LV_OBJ_FLAG_HIDDEN);
+    lv_obj_add_flag(view_angle_btn, LV_OBJ_FLAG_HIDDEN);
+    lv_label_set_text(lv_obj_get_child(display_mode_btn, 0), "3D");
   }
 }
 

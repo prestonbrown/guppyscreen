@@ -10,15 +10,24 @@
 #include <sstream>
 #include <iomanip>
 #include <sys/ioctl.h>
+#ifdef __APPLE__
+#include <net/if.h>
+#include <net/if_dl.h>
+#else
 #include <linux/if.h>
+#endif
 #include <ifaddrs.h>
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <cstring>
+#ifdef __APPLE__
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
 #include <experimental/filesystem>
-#include <regex>
-
 namespace fs = std::experimental::filesystem;
+#endif
+#include <regex>
 
 namespace KUtils {
 
@@ -157,9 +166,13 @@ namespace KUtils {
     struct ifaddrs *addrs;
     getifaddrs(&addrs);
     for (struct ifaddrs *addr = addrs; addr != nullptr; addr = addr->ifa_next) {
-      if (addr->ifa_addr && addr->ifa_addr->sa_family == AF_PACKET) {
-        ifaces.push_back(addr->ifa_name);
-      }
+#ifdef __APPLE__
+        if (addr->ifa_addr && addr->ifa_addr->sa_family == AF_LINK) {
+#else
+        if (addr->ifa_addr && addr->ifa_addr->sa_family == AF_PACKET) {
+#endif
+	  ifaces.push_back(addr->ifa_name);
+        }
     }
 
     freeifaddrs(addrs);

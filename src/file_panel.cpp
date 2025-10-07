@@ -8,9 +8,13 @@
 #include <iomanip>
 #include <sstream>
 #include <vector>
+#ifdef __APPLE__
+#include <filesystem>
+namespace fs = std::filesystem;
+#else
 #include <experimental/filesystem>
-
 namespace fs = std::experimental::filesystem;
+#endif
 
 FilePanel::FilePanel(lv_obj_t *parent)
   : file_cont(lv_obj_create(parent))

@@ -69,6 +69,71 @@ After an initial `make build`, you can make changes to src guppy files and then 
 
 The executable is ./build/bin/guppyscreen
 
+### macOS (Apple Silicon / Intel)
+Building on macOS requires some additional setup and considerations:
+
+#### Prerequisites
+1. Install Xcode Command Line Tools: `xcode-select --install`
+2. Install Homebrew if not already installed: https://brew.sh
+3. Install SDL2: `brew install sdl2`
+4. Install CMake: `brew install cmake`
+
+#### Build Steps
+1. Clone the repo with submodules:
+   ```bash
+   git clone --recursive https://github.com/ballaswag/guppyscreen && cd guppyscreen
+   ```
+
+2. Initialize submodules if not already done:
+   ```bash
+   git submodule update --init --recursive
+   ```
+
+3. Apply patches:
+   ```bash
+   cd lv_drivers/ && git apply ../patches/0001-lv_driver_fb_ioctls.patch && cd ..
+   cd spdlog/ && git apply ../patches/0002-spdlog_fmt_initializer_list.patch && cd ..
+   ```
+
+4. Configure libhv for macOS:
+   ```bash
+   cd libhv && ./configure && cd ..
+   ```
+
+5. Build:
+   ```bash
+   unset CROSS_COMPILE
+   make build
+   ```
+
+After the initial build, incremental builds can be done with just `make`.
+
+#### Configuration
+The build process automatically:
+- Copies a simulator-specific `guppyconfig.json` to `build/bin/` (for non-cross-compile builds)
+- Creates `build/logs/` and `build/thumbnails/` directories
+- Configures paths relative to the build directory
+
+The default simulator config is ready to use and points to:
+- `log_path`: `./build/logs/guppyscreen.log`
+- `thumbnail_path`: `./build/thumbnails`
+- `moonraker_host`: `127.0.0.1`
+- `moonraker_port`: `7125`
+
+To connect to a different Moonraker instance, edit `build/bin/guppyconfig.json` and update the `moonraker_host` and `moonraker_port` values.
+
+#### Notes
+- The build automatically detects macOS and uses dynamic linking (simulator mode)
+- A default `guppyconfig.json` is copied to `build/bin/` during the build
+- The code includes platform-specific `#ifdef __APPLE__` conditionals for:
+  - Using `<filesystem>` instead of `<experimental/filesystem>`
+  - Using `<net/if.h>` instead of `<linux/if.h>`
+  - Using `AF_LINK` instead of `AF_PACKET` for network interfaces
+  - Not requiring `-latomic` or `-lstdc++fs` linker flags
+- The LVGL canvas API has been updated for compatibility with LVGL v8.3
+
+The executable is ./build/bin/guppyscreen
+
 ### Simulation
 Guppy Screen default configurations (guppyconfig.json) is configured for the K1/Max. In order to run it remotely as a simulator build, a few thing needs to be setup.
 The following attributes need to be configured in `build/bin/guppyconfig.json`
@@ -101,8 +166,15 @@ Note: Guppy Screen currently requires running as `root` because it directly inte
 
 ### Virtual Klipper
 
-It is possible to use https://github.com/mainsail-crew/virtual-klipper-printer to start a virtual printer locally
-to make local testing and development easier.   You will need to install docker-ce and docker-compose locally.
+For local testing and development without a physical printer, you can use a virtual Klipper printer. There are two options:
+
+1. **virtual-3dprinter** (Recommended): https://github.com/prestonbrown/virtual-3dprinter
+   - Easy to set up and use
+   - Good for testing Guppy Screen features
+
+2. **Mainsail Virtual Klipper**: https://github.com/mainsail-crew/virtual-klipper-printer
+   - More comprehensive setup
+   - Requires docker-ce and docker-compose
 
 ### Install Docker and Docker Compose
 

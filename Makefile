@@ -1,6 +1,28 @@
+#===============================================================================
+# GuppyScreen Makefile
+#===============================================================================
 #
-# Makefile for GuppyScreen
+# USAGE:
+#   make config    - Interactive menu to select build target (required first step)
+#   make           - Build for configured target (parallel compilation)
+#   make build     - Full clean build with all dependencies
+#   make clean     - Remove build artifacts
+#   make help      - Show available targets
 #
+# TARGETS:
+#   simulator      - macOS/Linux development build (SDL2, virtual display)
+#   pi             - Raspberry Pi / BTT Pad (ARM native, framebuffer)
+#   k1             - Creality K1/K1 Max (MIPS embedded, static linking)
+#   flashforge     - FlashForge AD5M/Pro (ARM, custom bed mesh)
+#
+# CONFIGURATION:
+#   Target is stored in .config file (created by 'make config')
+#   Run 'make config' to change target
+#
+# PARALLEL BUILDS:
+#   Automatically uses all available CPU cores via NPROC variable
+#
+#===============================================================================
 
 # Configuration target - interactive menu to select build target
 .PHONY: config

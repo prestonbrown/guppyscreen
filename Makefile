@@ -119,6 +119,19 @@ endif
 # Build Configuration
 #===============================================================================
 
+# Detect number of processors for parallel builds
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+  # macOS
+  NPROC := $(shell sysctl -n hw.ncpu 2>/dev/null || echo 4)
+else ifeq ($(UNAME_S),Linux)
+  # Linux
+  NPROC := $(shell nproc 2>/dev/null || echo 4)
+else
+  # Fallback for other systems
+  NPROC := 4
+endif
+
 LVGL_DIR_NAME  ?= lvgl
 LVGL_DIR       ?= .
 BIN             = guppyscreen
@@ -225,18 +238,18 @@ COMPILE_CXX = $(CXX) $(CFLAGS) $(INC) $(DEFINES)
 all: default
 
 libhv.a:
-	$(MAKE) -C libhv -j$(nproc) libhv
+	$(MAKE) -C libhv -j$(NPROC) libhv
 
 libspdlog.a:
 	@mkdir -p $(SPDLOG_DIR)/build
 	@cmake -B $(SPDLOG_DIR)/build -S $(SPDLOG_DIR)/ -DCMAKE_CXX_COMPILER=$(CXX)
-	$(MAKE) -C $(SPDLOG_DIR)/build -j$(nproc)
+	$(MAKE) -C $(SPDLOG_DIR)/build -j$(NPROC)
 
 wpaclient:
 ifeq ($(TARGET),flashforge)
-	$(MAKE) -C wpa_supplicant/wpa_supplicant CC=$(CC) RANLIB=$(RANLIB) -j$(nproc) libwpa_client.a
+	$(MAKE) -C wpa_supplicant/wpa_supplicant CC=$(CC) RANLIB=$(RANLIB) -j$(NPROC) libwpa_client.a
 else
-	$(MAKE) -C wpa_supplicant/wpa_supplicant -j$(nproc) libwpa_client.a
+	$(MAKE) -C wpa_supplicant/wpa_supplicant -j$(NPROC) libwpa_client.a
 endif
 
 $(BUILD_OBJ_DIR)/%.o: %.cpp
@@ -294,6 +307,7 @@ uninstall:
 #===============================================================================
 
 build:
+	@echo "Building with $(NPROC) parallel jobs..."
 	$(MAKE) wpaclean
 	$(MAKE) wpaclient
 	$(MAKE) libhvclean
@@ -301,7 +315,7 @@ build:
 	$(MAKE) spdlogclean
 	$(MAKE) libspdlog.a
 	$(MAKE) clean
-	$(MAKE) -j$(nproc)
+	$(MAKE) -j$(NPROC) default
 	@echo "Setting up configuration..."
 ifeq ($(TARGET),simulator)
 	@echo "Copying simulator config and creating directories..."

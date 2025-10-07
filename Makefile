@@ -99,9 +99,9 @@ ifeq ($(TARGET),simulator)
     LDFLAGS ?= -lm libhv/lib/libhv.a spdlog/build/libspdlog.a wpa_supplicant/wpa_supplicant/libwpa_client.a \
                -lpthread -L$(SDL2_PREFIX)/lib -lSDL2 -framework Security -framework CoreFoundation
   else
-    # Linux: Dynamic linking
+    # Linux: Dynamic linking with RPATH for runtime library discovery
     LDFLAGS ?= -lm -Llibhv/lib -Lspdlog/build -lhv -latomic -lpthread -Lwpa_supplicant/wpa_supplicant/ \
-               -lwpa_client -lstdc++fs -lspdlog -lSDL2
+               -lwpa_client -lstdc++fs -lspdlog -lSDL2 -Wl,-rpath,'$$ORIGIN/../../libhv/lib'
   endif
 
 else ifeq ($(TARGET),pi)

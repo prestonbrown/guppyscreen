@@ -60,6 +60,8 @@ BedMeshPanel::BedMeshPanel(KWebSocketClient &c, std::mutex &l)
   } else {
     lv_obj_set_style_text_font(mesh_table, &lv_font_montserrat_10, LV_STATE_DEFAULT);
   }
+  auto scale = (double)screen_width / 800.0;
+  auto hscale = (double)lv_disp_get_physical_ver_res(NULL) / 480.0;
 
   // mesh table
   lv_obj_set_height(mesh_table, LV_PCT(100));

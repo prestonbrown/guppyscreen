@@ -8,3 +8,6 @@ build/
 .DS_Store
 /.config
 /.config.whiptail_asked
+
+# UI Research - Downloaded source files (can be re-downloaded)
+docs/ui-research/*/downloads/*.pdf

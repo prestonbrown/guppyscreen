@@ -104,15 +104,36 @@ To build guppyscreen for Mipsel (Ingenic X2000E) - specific to the K1 SoC, you w
 
 ### The Code
 
-Clone the guppyscreen repo (and submodules) and apply a couple of patches locally.
+Clone the guppyscreen repo (and submodules) and apply required patches locally.
 
-1. `git clone --recursive https://github.com/probielodan/guppyscreen && cd guppyscreen`
+1. `git clone --recursive https://github.com/prestonbrown/guppyscreen && cd guppyscreen`
 2. `(cd lv_drivers/ && git apply ../patches/0001-lv_driver_fb_ioctls.patch)`
-3. `(cd spdlog/ && git apply ../patches/0002-spdlog_fmt_initializer_list.patch)`
+3. `(cd lv_drivers/ && git apply ../patches/0003-lv_drivers_exclude_linux_on_macos.patch)`
+4. `(cd spdlog/ && git apply ../patches/0002-spdlog_fmt_initializer_list.patch)`
+
+### Makefile Targets
+
+The build system provides several make targets:
+
+- **`make config`** - Interactive menu to select build target (required first step)
+- **`make`** or **`make default`** - Build for configured target with parallel compilation
+- **`make build`** - Full clean build including all dependencies (libhv, spdlog, wpa_client)
+- **`make clean`** - Remove build artifacts
+- **`make help`** - Show available targets
+
+**Parallel Compilation:**
+All builds automatically detect and use all available CPU cores via the `NPROC` variable:
+- macOS: Uses `sysctl -n hw.ncpu`
+- Linux: Uses `nproc`
+- Fallback: 4 cores
+
+**Platform-Specific Behavior:**
+- macOS: Excludes Linux-specific drivers (evdev.c, fbdev.c) that require Linux headers
+- Linux: Includes all drivers including evdev and fbdev
 
 ### Building for Different Targets
 
-The new build system uses `make config` to select your target, then `make build` to compile.
+The build system uses `make config` to select your target, then `make` or `make build` to compile.
 
 #### Simulator (macOS/Linux Development)
 

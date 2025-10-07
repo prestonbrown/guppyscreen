@@ -141,6 +141,9 @@ GuppyScreen is built with modern C++17 and leverages:
 
 ## 🗺️ Roadmap
 
+**Major Initiatives:**
+- [ ] **UI Redesign** - Modernizing the interface with inspiration from Bambu Lab X1C, Creality K1, and FlashForge UIs (see [UI_REDESIGN.md](UI_REDESIGN.md))
+
 **Upcoming Features:**
 - [ ] Exclude Object support
 - [ ] Firmware Retraction control

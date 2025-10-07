@@ -108,7 +108,7 @@ echo -e "  ${YELLOW}?${NC}   - Show this help again"
 echo -e "  ${RED}q/Q${NC} - Quit review"
 echo ""
 echo -e "Press ${BOLD}ENTER${NC} to start..."
-read -r
+read -r < /dev/tty
 
 CURRENT=0
 FLAGGED_COUNT=0
@@ -164,8 +164,8 @@ while [ $CURRENT -lt $TOTAL ]; do
     # Show status and prompt
     show_status "$IMG" "$CURRENT"
 
-    # Get user input
-    read -r -n 1 RESPONSE
+    # Get user input (read from /dev/tty to avoid process substitution conflicts)
+    read -r -n 1 RESPONSE < /dev/tty
     echo ""
 
     case "$RESPONSE" in
@@ -200,7 +200,7 @@ while [ $CURRENT -lt $TOTAL ]; do
             echo -e "  ${RED}q/Q${NC} - Quit review"
             echo ""
             echo "Press ENTER to continue..."
-            read -r
+            read -r < /dev/tty
             ;;
         q|Q)
             echo -e "${YELLOW}Quitting review...${NC}"

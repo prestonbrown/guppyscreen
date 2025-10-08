@@ -170,8 +170,31 @@ while [ $CURRENT -lt $TOTAL ]; do
 
     case "$RESPONSE" in
         y|Y)
-            echo "$IMG" >> "$OUTPUT_FILE"
-            echo -e "${GREEN}✓ Flagged as UI screenshot${NC}"
+            # Ask for category
+            echo ""
+            echo -e "${CYAN}Category: [${BOLD}s${NC}${CYAN}]ettings [${BOLD}c${NC}${CYAN}]ontrols [${BOLD}f${NC}${CYAN}]ilament [${BOLD}h${NC}${CYAN}]ome [${BOLD}m${NC}${CYAN}]aintenance [${BOLD}p${NC}${CYAN}]rint-options"
+            echo -e "          [${BOLD}n${NC}${CYAN}]etwork [${BOLD}l${NC}${CYAN}]calibration fi[${BOLD}b${NC}${CYAN}]rowser [${BOLD}t${NC}${CYAN}]status [${BOLD}ENTER${NC}${CYAN}]=uncategorized${NC}"
+            echo -n "Select: "
+            read -r -n 1 CATEGORY < /dev/tty
+            echo ""
+
+            case "$CATEGORY" in
+                s|S) CAT_NAME="settings" ;;
+                c|C) CAT_NAME="controls" ;;
+                f|F) CAT_NAME="filament" ;;
+                h|H) CAT_NAME="home" ;;
+                m|M) CAT_NAME="maintenance" ;;
+                p|P) CAT_NAME="print-options" ;;
+                n|N) CAT_NAME="network" ;;
+                l|L) CAT_NAME="calibration" ;;
+                b|B) CAT_NAME="files" ;;
+                t|T) CAT_NAME="print-status" ;;
+                "") CAT_NAME="uncategorized" ;;
+                *) CAT_NAME="uncategorized" ;;
+            esac
+
+            echo "CATEGORY:$CAT_NAME:$IMG" >> "$OUTPUT_FILE"
+            echo -e "${GREEN}✓ Flagged as ${BOLD}$CAT_NAME${NC}${GREEN} UI screenshot${NC}"
             ((FLAGGED_COUNT++))
             ((CURRENT++))
             sleep 0.5
@@ -193,11 +216,15 @@ while [ $CURRENT -lt $TOTAL ]; do
             clear
             echo -e "${BOLD}Help:${NC}"
             echo ""
-            echo -e "  ${GREEN}y/Y${NC} - Flag as RELEVANT UI screenshot (keep)"
+            echo -e "  ${GREEN}y/Y${NC} - Flag as RELEVANT UI screenshot (then choose category)"
             echo -e "  ${RED}n/N${NC} - Skip (neither keep nor delete)"
             echo -e "  ${BLUE}d/D${NC} - Flag for DELETE (junk/non-UI)"
             echo -e "  ${YELLOW}?${NC}   - Show this help"
             echo -e "  ${RED}q/Q${NC} - Quit review"
+            echo ""
+            echo -e "${BOLD}Categories:${NC}"
+            echo -e "  s=settings, c=controls, f=filament, h=home, m=maintenance"
+            echo -e "  p=print-options, n=network, l=calibration, b=files, t=print-status"
             echo ""
             echo "Press ENTER to continue..."
             read -r < /dev/tty
@@ -232,7 +259,13 @@ echo ""
 if [ "$FLAGGED_COUNT" -gt 0 ]; then
     echo -e "${GREEN}Flagged UI Screenshots:${NC}"
     grep -v "^DELETE:" "$OUTPUT_FILE" | while read -r line; do
-        echo "  $(basename "$line")"
+        if [[ "$line" =~ ^CATEGORY: ]]; then
+            category=$(echo "$line" | cut -d':' -f2)
+            filepath=$(echo "$line" | cut -d':' -f3-)
+            echo "  [$category] $(basename "$filepath")"
+        else
+            echo "  [uncategorized] $(basename "$line")"
+        fi
     done
     echo ""
 fi
@@ -259,14 +292,25 @@ cat > "$PARSED_OUTPUT" <<EOF
   "flagged_files": [
 EOF
 
-# Add flagged files as JSON array
+# Add flagged files as JSON array with categories
 first=true
 grep -v "^DELETE:" "$OUTPUT_FILE" 2>/dev/null | while read -r line; do
-    if [ "$first" = true ]; then
-        echo "    \"$line\"" >> "$PARSED_OUTPUT"
-        first=false
+    if [[ "$line" =~ ^CATEGORY: ]]; then
+        category=$(echo "$line" | cut -d':' -f2)
+        filepath=$(echo "$line" | cut -d':' -f3-)
+        if [ "$first" = true ]; then
+            echo "    {\"category\": \"$category\", \"file\": \"$filepath\"}" >> "$PARSED_OUTPUT"
+            first=false
+        else
+            echo "    ,{\"category\": \"$category\", \"file\": \"$filepath\"}" >> "$PARSED_OUTPUT"
+        fi
     else
-        echo "    ,\"$line\"" >> "$PARSED_OUTPUT"
+        if [ "$first" = true ]; then
+            echo "    {\"category\": \"uncategorized\", \"file\": \"$line\"}" >> "$PARSED_OUTPUT"
+            first=false
+        else
+            echo "    ,{\"category\": \"uncategorized\", \"file\": \"$line\"}" >> "$PARSED_OUTPUT"
+        fi
     fi
 done || true
 

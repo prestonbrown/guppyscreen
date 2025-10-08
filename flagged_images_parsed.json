@@ -1,0 +1,90 @@
+{
+  "review_date": "2025-10-08T02:14:23Z",
+  "directory": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen",
+  "total_images": 77,
+  "reviewed": 77,
+  "flagged_ui": 21,
+  "skipped": 0,
+  "marked_delete": 56,
+  "flagged_files": [
+    {"category": "uncategorized", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/12.png"}
+    ,{"category": "print-status", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/13.png"}
+    ,{"category": "filament", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/14.png"}
+    ,{"category": "filament", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/15.png"}
+    ,{"category": "filament", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/16.png"}
+    ,{"category": "filament", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/17.png"}
+    ,{"category": "print-options", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/18.png"}
+    ,{"category": "settings", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/19b.png"}
+    ,{"category": "uncategorized", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-10.png"}
+    ,{"category": "settings", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-7.png"}
+    ,{"category": "home", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/3-1.png"}
+    ,{"category": "settings", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/3-3.png"}
+    ,{"category": "files", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/4-1.png"}
+    ,{"category": "filament", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/5-1.png"}
+    ,{"category": "filament", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/5-2.png"}
+    ,{"category": "filament", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/automatic-retracting.jpg"}
+    ,{"category": "filament", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/click-extrude-on-the-screen.jpg"}
+    ,{"category": "files", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/files.png"}
+    ,{"category": "home", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/heat-the-nozzle-on-machine-screen.png"}
+    ,{"category": "controls", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/heat-the-nozzle-to-200c-2.png"}
+    ,{"category": "controls", "file": "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/machine-screen.png"}
+  ],
+  "delete_files": [
+    "/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/01.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/02.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/03.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/04.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/05.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/06.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/07a.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/07b.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/08a.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/08b.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/09a.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/09b.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/09c.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/1.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/10.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/11.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/19a.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-1.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-2.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-3.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-4.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-5.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-6.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-8.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2-9.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/2.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/20.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/21a.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/21b.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/22a.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/22b.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/23.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/24.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/3.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/4-2.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/4-3.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/4-4.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/4.jpg"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/6-1.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/6-2.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/6-3.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/6-4.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/consumables-are-flowing-out.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/consumables-pull-out-teflon-tube.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/externally-penetrate-consumables.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/install-buckle.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/lock-extruder-switch.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/lock-the-switch-first.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/penetrating-consumables-from-top-to-bottom.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/pull-out-consumables.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/pull-out-the-blue-buckle.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/pull-out-the-filament-from-the-teflon-tube.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/tighten-the-teflon-tube.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/unlock-extruder-2.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/unlock-extruder-switch.png"
+    ,"/Users/pbrown/code/guppyscreen/docs/ui-research/creality-k1/main-screen/unlock-extruder.png"
+  ]
+}

@@ -1,5 +1,8 @@
 ---
-description: Refactor code following best practices and design patterns
+name: refractor
+description: Refactor code following best practices and design patterns. Use when code needs restructuring, optimization, or improved readability.
+tools: Read, Edit, Grep, Glob
+model: inherit
 ---
 
 ## Your task

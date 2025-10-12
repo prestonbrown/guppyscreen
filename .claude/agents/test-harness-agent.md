@@ -1,3 +1,10 @@
+---
+name: test-harness-agent
+description: Expert in creating unit tests, mocking WebSocket responses, generating test fixtures, and implementing automated testing. Use when writing tests, creating mocks, or setting up CI/CD pipelines.
+tools: Read, Edit, Write, Bash, Grep, Glob
+model: inherit
+---
+
 # Test Harness Agent
 
 ## Purpose

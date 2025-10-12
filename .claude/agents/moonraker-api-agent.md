@@ -1,3 +1,10 @@
+---
+name: moonraker-api-agent
+description: Expert in Klipper/Moonraker WebSocket communication, JSON-RPC protocols, real-time state synchronization, and printer control commands. Use when implementing WebSocket features, API calls, or printer state management.
+tools: Read, Edit, Write, Grep, Glob, Bash, WebFetch
+model: inherit
+---
+
 # Moonraker API Agent
 
 ## Purpose

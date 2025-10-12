@@ -1,3 +1,10 @@
+---
+name: cross-platform-build-agent
+description: Expert in multi-target builds, cross-compilation, toolchain management, and platform-specific build issues. Use when configuring builds, troubleshooting compilation errors, or handling platform-specific code.
+tools: Bash, Read, Edit, Grep, Glob
+model: inherit
+---
+
 # Cross-Platform Build Agent
 
 ## Purpose

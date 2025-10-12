@@ -89,6 +89,57 @@ Example prompts:
 
 ---
 
+### 6. 🎨 [Widget Maker Agent](./widget-maker.md)
+**Expertise:** LVGL 9 XML UI system, reactive data binding, modern UI patterns
+
+Use when you need to:
+- Create LVGL v9 UI components using XML layouts
+- Implement reactive data binding with subjects
+- Work with the prototype-ui9 XML UI system
+- Design navigation, panels, or custom widgets
+- Handle event callbacks in the XML/C++ hybrid system
+
+Example prompts:
+- "Create a temperature card widget with FontAwesome icon"
+- "Implement a navigation bar with reactive icon colors"
+- "Add click handlers to XML-defined buttons"
+
+---
+
+### 7. 🔧 [Refractor Agent](./refractor.md)
+**Expertise:** Code refactoring, design patterns, best practices
+
+Use when you need to:
+- Refactor existing code for better readability
+- Extract common patterns into reusable components
+- Improve code organization and structure
+- Optimize performance without breaking functionality
+- Apply modern C++ conventions
+
+Example prompts:
+- "Refactor this panel class to use RAII patterns"
+- "Extract duplicate code into a utility function"
+- "Improve the error handling in this WebSocket callback"
+
+---
+
+### 8. 🔍 [UI Reviewer Agent](./ui-reviewer.md)
+**Expertise:** LVGL 9 UI verification, requirements validation, visual analysis
+
+Use when you need to:
+- Review UI screenshots against detailed requirements
+- Verify LVGL v9 XML implementations
+- Identify layout, sizing, or styling issues
+- Generate specific XML fixes with line numbers
+- Validate changelog items were applied correctly
+
+Example prompts:
+- "Review this screenshot against the home panel requirements"
+- "Verify all spacing matches the design spec"
+- "Check if the recent fixes in the changelog are visible"
+
+---
+
 ## How to Use These Agents
 
 ### With Claude or Other AI Assistants
@@ -134,5 +185,12 @@ These agents should be updated when:
 - Common issues are discovered and solved
 - Dependencies are updated (LVGL 8.3 → 9.0)
 
-Last updated: October 2024
+## Project Context
+
+- **Main Project:** Uses LVGL 8.3 with C++ panel classes
+- **Prototype UI9:** Uses LVGL 9.3 with XML-based declarative UI system
+- Use the **Widget Maker** agent specifically for prototype-ui9 work
+- Use the **General Coding** agent for main project LVGL 8.3 work
+
+Last updated: January 2025
 GuppyScreen version: 0.0.30-beta

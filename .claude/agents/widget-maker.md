@@ -1,3 +1,10 @@
+---
+name: widget-maker
+description: Expert in creating LVGL v9 UI widgets using C/C++ and XML layouts. Use when implementing UI components, panels, or working with the LVGL 9 XML system in the prototype-ui9 project.
+tools: Read, Edit, Write, Grep, Glob, WebFetch
+model: inherit
+---
+
 # widget-maker Agent Specification
 
 ## Purpose

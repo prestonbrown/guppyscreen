@@ -1,3 +1,10 @@
+---
+name: general-coding-agent
+description: Expert in C++17 development, LVGL UI framework, embedded systems programming, and GuppyScreen's architectural patterns. Use when implementing new panels, UI components, or general C++ features.
+tools: Read, Edit, Write, Grep, Glob, Bash, WebFetch
+model: inherit
+---
+
 # General Coding Agent
 
 ## Purpose

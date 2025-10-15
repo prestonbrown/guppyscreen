@@ -68,6 +68,66 @@ lv_obj_clear_flag(controls, LV_OBJ_FLAG_HIDDEN);
 
 **Why:** Component names in `<view name="...">` definitions don't propagate to instantiation tags. Without explicit names, `lv_obj_find_by_name()` returns NULL.
 
+### Icon Component
+
+**Custom Material Design icon widget with semantic properties for sizing and color variants.**
+
+**Properties:**
+- `src` - Material icon name (default: `"mat_home"`)
+- `size` - Semantic size string: `xs`, `sm`, `md`, `lg`, `xl` (default: `"xl"`)
+- `variant` - Color variant string: `primary`, `secondary`, `accent`, `disabled`, `none` (default: no recoloring)
+
+```xml
+<!-- Basic usage with defaults (mat_home, 64px, no recolor) -->
+<icon/>
+
+<!-- Specify icon source -->
+<icon src="mat_print"/>
+
+<!-- Semantic sizes with color variants -->
+<icon src="mat_heater" size="lg" variant="primary"/>
+<icon src="mat_back" size="md" variant="secondary"/>
+<icon src="mat_pause" size="sm" variant="disabled"/>
+
+<!-- All properties specified -->
+<icon src="mat_delete" size="xl" variant="accent" align="center"/>
+```
+
+**Available Sizes:**
+- `xs` - 16×16px @ scale 64 (UI elements)
+- `sm` - 24×24px @ scale 96 (small buttons)
+- `md` - 32×32px @ scale 128 (standard buttons)
+- `lg` - 48×48px @ scale 192 (large UI elements)
+- `xl` - 64×64px @ scale 256 (default, primary icons)
+
+**Color Variants:**
+- `primary` - Recolored with `#text_primary` (100% opacity)
+- `secondary` - Recolored with `#text_secondary` (100% opacity)
+- `accent` - Recolored with `#primary_color` (100% opacity)
+- `disabled` - Recolored with `#text_secondary` (50% opacity)
+- `none` - No recoloring (0% opacity, shows original icon colors)
+- *(empty/omitted)* - No variant applied (no recoloring)
+
+**Implementation:**
+- Custom LVGL widget extending `lv_image`
+- C++ property handlers parse semantic strings (`size`, `variant`)
+- Styles defined in `globals.xml` for easy theming
+- Automatic scaling: scale = size × 4 (64px base icons)
+- Validates icon sources and logs warnings for invalid values
+
+**C++ Registration (done in main.cpp):**
+```cpp
+#include "ui_icon.h"
+
+// Register widget before XML component loading
+material_icons_register();
+ui_icon_register_widget();  // Must be before icon.xml registration
+lv_xml_component_register_from_file("A:ui_xml/icon.xml");
+```
+
+**Material Icon Names:**
+All icons use `mat_` prefix: `mat_home`, `mat_print`, `mat_pause`, `mat_heater`, `mat_bed`, `mat_fan`, `mat_extruder`, `mat_cancel`, `mat_refresh`, `mat_back`, `mat_delete`, etc. See [material_icons.cpp](../src/material_icons.cpp) for complete list.
+
 ### Flex Layout (Navbar Pattern)
 
 ```xml
@@ -113,6 +173,17 @@ lv_subject_set_int(&subj, 42);
 // Color
 lv_subject_init_color(&subj, lv_color_hex(0xFF0000));
 lv_subject_set_color(&subj, lv_color_hex(0x00FF00));
+
+// Observer callback for image recoloring
+static void image_color_observer(lv_observer_t* obs, lv_subject_t* subj) {
+    lv_obj_t* image = (lv_obj_t*)lv_observer_get_target(obs);
+    lv_color_t color = lv_subject_get_color(subj);
+    lv_obj_set_style_img_recolor(image, color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(image, 255, LV_PART_MAIN);
+}
+
+// Register observer
+lv_subject_add_observer_obj(&color_subj, image_color_observer, image_widget, NULL);
 ```
 
 ## XML Bindings
@@ -240,12 +311,33 @@ void material_icons_register() {
 <lv_image src="mat_home" align="center"/>
 ```
 
-**Dynamic Scaling & Recoloring:**
+**Scaling & Recoloring in XML:**
+```xml
+<!-- XML scaling (256 = 100%) - PREFERRED METHOD -->
+<lv_image src="mat_home"
+          scale_x="128" scale_y="128"              <!-- 50% size (32px) -->
+          style_image_recolor="#primary_color"     <!-- MUST use 'image' not 'img' -->
+          style_image_recolor_opa="255"/>
+
+<lv_image src="mat_home"
+          scale_x="256" scale_y="256"              <!-- 100% size (64px) -->
+          style_image_recolor="#text_secondary"
+          style_image_recolor_opa="255"/>
+```
+
+**⚠️ CRITICAL Gotchas:**
+- ❌ **zoom** - Doesn't exist in LVGL 9!
+- ✅ **scale_x, scale_y** - Use these (256 = 100%)
+- ❌ **style_img_recolor** - Parser ignores abbreviated 'img'!
+- ✅ **style_image_recolor** - Must use full word 'image'
+
+**C++ Scaling & Recoloring (if needed):**
 ```cpp
-// Responsive scaling (in ui_nav.cpp)
-lv_image_set_scale(icon, 128);  // 50% (32px) for tiny screens
-lv_image_set_scale(icon, 192);  // 75% (48px) for medium screens
-lv_image_set_scale(icon, 256);  // 100% (64px) for large screens
+// Responsive scaling
+lv_image_set_scale_x(icon, 128);  // 50% (32px)
+lv_image_set_scale_y(icon, 128);
+lv_image_set_scale_x(icon, 256);  // 100% (64px)
+lv_image_set_scale_y(icon, 256);
 
 // Dynamic recoloring (active = red, inactive = gray)
 lv_obj_set_style_img_recolor(icon, UI_COLOR_PRIMARY, LV_PART_MAIN);

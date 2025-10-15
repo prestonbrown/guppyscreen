@@ -24,32 +24,32 @@
 
 		<!-- Home Button (Panel 0) -->
 		<lv_button name="nav_btn_home" width="#nav_button_size" height="#nav_button_size" style_bg_opa="0" style_shadow_width="0" style_border_width="0" style_radius="0" style_pad_all="0">
-			<lv_image name="nav_icon_home" src="mat_home" align="center"/>
+			<icon name="nav_icon_home" src="mat_home"/>
 		</lv_button>
 
 		<!-- Print Select Button (Panel 1 - beneath Home) -->
 		<lv_button name="nav_btn_print_select" width="#nav_button_size" height="#nav_button_size" style_bg_opa="0" style_shadow_width="0" style_border_width="0" style_radius="0" style_pad_all="0">
-			<lv_image name="nav_icon_print_select" src="mat_print" align="center"/>
+			<icon name="nav_icon_print_select" src="mat_print"/>
 		</lv_button>
 
 		<!-- Controls Button (Panel 2) -->
 		<lv_button name="nav_btn_controls" width="#nav_button_size" height="#nav_button_size" style_bg_opa="0" style_shadow_width="0" style_border_width="0" style_radius="0" style_pad_all="0">
-			<lv_image name="nav_icon_controls" src="mat_move" align="center"/>
+			<icon name="nav_icon_controls" src="mat_move"/>
 		</lv_button>
 
 		<!-- Filament Button (Panel 3) -->
 		<lv_button name="nav_btn_filament" width="#nav_button_size" height="#nav_button_size" style_bg_opa="0" style_shadow_width="0" style_border_width="0" style_radius="0" style_pad_all="0">
-			<lv_image name="nav_icon_filament" src="mat_filament" align="center"/>
+			<icon name="nav_icon_filament" src="mat_filament"/>
 		</lv_button>
 
 		<!-- Settings Button (Panel 4) -->
 		<lv_button name="nav_btn_settings" width="#nav_button_size" height="#nav_button_size" style_bg_opa="0" style_shadow_width="0" style_border_width="0" style_radius="0" style_pad_all="0">
-			<lv_image name="nav_icon_settings" src="mat_fine_tune" align="center"/>
+			<icon name="nav_icon_settings" src="mat_fine_tune"/>
 		</lv_button>
 
 		<!-- Advanced Button (Panel 5) -->
 		<lv_button name="nav_btn_advanced" width="#nav_button_size" height="#nav_button_size" style_bg_opa="0" style_shadow_width="0" style_border_width="0" style_radius="0" style_pad_all="0">
-			<lv_image name="nav_icon_advanced" src="mat_sysinfo" align="center"/>
+			<icon name="nav_icon_advanced" src="mat_sysinfo"/>
 		</lv_button>
 
 	</view>

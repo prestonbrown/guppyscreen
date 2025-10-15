@@ -404,6 +404,7 @@ static void populate_card_view() {
             "thumbnail_src", file.thumbnail_path.c_str(),
             "filename", file.filename.c_str(),
             "print_time", file.print_time_str.c_str(),
+            "filament_weight", file.filament_str.c_str(),
             NULL
         };
 

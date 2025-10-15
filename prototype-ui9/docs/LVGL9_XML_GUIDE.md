@@ -531,20 +531,67 @@ A thin vertical colored bar positioned to the left of text, commonly used in mat
         style_bg_opa="255"/>
 ```
 
-### Clickable Icon Button
+### Icon Component
 
-Transparent button with FontAwesome icon:
+**Modern approach using reusable icon component with semantic sizing:**
 
 ```xml
-<lv_button width="64" height="64"
-           style_bg_opa="0%"
+<!-- Basic icon with default size (64px) -->
+<icon src="mat_home"/>
+
+<!-- Sized icon with color variant -->
+<icon src="mat_heater" size="lg" variant="accent"/>
+
+<!-- Clickable icon button -->
+<lv_button width="60" height="60"
+           style_bg_opa="0"
            style_border_width="0"
-           style_shadow_width="0"
-           flag_clickable="true">
-    <lv_label text="#icon_home" style_text_font="fa_icons_64" align="center"/>
-    <lv_event-call_function trigger="clicked" callback="icon_clicked" user_data="0"/>
+           style_shadow_width="0">
+    <icon src="mat_back" size="md" variant="primary"/>
+    <lv_event-call_function trigger="clicked" callback="back_clicked"/>
 </lv_button>
+
+<!-- Icon with custom recolor (override variant) -->
+<icon src="mat_delete" size="md" variant="none"
+      style_image_recolor="#warning_color"
+      style_image_recolor_opa="100%"/>
 ```
+
+**Semantic sizes:** `xs` (16px), `sm` (24px), `md` (32px), `lg` (48px), `xl` (64px), `xxl` (96px)
+
+**Color variants:** `primary`, `secondary`, `accent`, `disabled`, `none`
+
+**Benefits:**
+- Clean, semantic API (size="md" vs explicit pixel values)
+- Automatic icon scaling (no manual scale calculation)
+- Consistent color theming via variants
+- Encapsulated in reusable component
+
+**C++ Setup (main.cpp):**
+```cpp
+#include "ui_icon.h"
+
+lv_display_t* display = lv_sdl_window_create(...);
+ui_icon_init_auto_scale(display);  // Initialize once at startup
+```
+
+### Legacy Pattern: Direct Image/Label Icons
+
+For reference, the old approach before icon component:
+
+```xml
+<!-- Direct lv_image with manual scaling -->
+<lv_image src="mat_home" width="64" height="64" scale="256"/>
+
+<!-- FontAwesome with label -->
+<lv_label text="#icon_home" style_text_font="fa_icons_64" align="center"/>
+```
+
+**Why migrate to icon component:**
+- Reduces XML verbosity
+- Eliminates scale calculation errors
+- Provides semantic sizing
+- Enables global theme changes via variants
 
 ### Reactive Counter with Buttons
 
@@ -604,18 +651,15 @@ Show/hide panels based on active tab subject:
 
 ### Status Card with Icon Stacks
 
-Vertical stacking of icon and label, centered:
+Vertical stacking of icon and label, centered (using icon component):
 
 ```xml
 <lv_obj flex_grow="1" height="100%"
         flex_flow="column"
         style_flex_main_place="center"
         style_flex_cross_place="center">
-    <!-- Icon on top -->
-    <lv_label text="#icon_temperature"
-              style_text_font="fa_icons_48"
-              style_text_align="center"
-              width="100%"/>
+    <!-- Icon on top (using component) -->
+    <icon src="mat_heater" size="lg" variant="secondary"/>
 
     <!-- Text below -->
     <lv_label bind_text="temp_text"
@@ -623,6 +667,15 @@ Vertical stacking of icon and label, centered:
               style_text_align="center"
               width="100%"/>
 </lv_obj>
+```
+
+**Legacy approach with lv_label:**
+```xml
+<!-- Old pattern (still works, but verbose) -->
+<lv_label text="#icon_temperature"
+          style_text_font="fa_icons_48"
+          style_text_align="center"
+          width="100%"/>
 ```
 
 ---
@@ -704,39 +757,39 @@ Dynamically apply styles based on subject value:
 
 ## Event Handling
 
-### Custom Callback Events - Use C Code, Not XML
+### Custom Callback Events - Use `<lv_event-call_function>` Element
 
-**IMPORTANT**: For custom callback events with application-specific logic, **add event handlers in C code**, not in XML.
+**IMPORTANT DISCREPANCY**: The LVGL online documentation references `<event_cb>`, but the actual LVGL 9 source code uses `<lv_event-call_function>` as the element name (see `lvgl/src/others/xml/lv_xml.c:113`). Use `<lv_event-call_function>` in your XML.
 
-XML event elements like `<event_cb>` and `<lv_event-call_function>` are internal implementation details and should not be used directly in most cases.
+**⚠️ TODO**: Future refactor may be needed if LVGL standardizes on the `<event_cb>` name.
 
 **Correct approach:**
 
-**XML** (clean, no event elements):
-```xml
-<lv_button name="my_button">
-    <lv_label text="Click me"/>
-</lv_button>
-```
-
-**C Code** (add handlers after XML creation):
+**Step 1: Register callback in C code (BEFORE loading XML):**
 ```c
-// Get button widget from XML-created UI
-lv_obj_t* button = lv_obj_find_by_name(parent, "my_button");
+// Register callback with LVGL XML system
+lv_xml_register_event_cb(NULL, "my_handler", my_handler_function);
 
-// Add event handler
-lv_obj_add_event_cb(button, my_button_clicked, LV_EVENT_CLICKED, user_data);
-
-// Event handler function
-static void my_button_clicked(lv_event_t* e) {
-    void* user_data = lv_event_get_user_data(e);
-    // Handle click
+// Standard LVGL event handler signature
+static void my_handler_function(lv_event_t* e) {
+    const char* user_data = lv_event_get_user_data(e);
+    // Handle event
+    LV_LOG_USER("Button clicked!");
 }
 ```
 
-### XML Event Elements - For Built-in Actions Only
+**Step 2: Add event callback in XML using correct element name:**
+```xml
+<lv_button name="my_button">
+    <lv_label text="Click me"/>
+    <!-- Use lv_event-call_function, NOT event_cb -->
+    <lv_event-call_function trigger="clicked" callback="my_handler" user_data="optional_data"/>
+</lv_button>
+```
 
-XML supports built-in event types for common reactive patterns.
+**Official Documentation:** https://docs.lvgl.io/master/details/xml/ui_elements/events.html (Note: docs use `<event_cb>` but source code uses `<lv_event-call_function>`)
+
+### XML Event Elements - Supported Types
 
 #### Event Triggers
 
@@ -748,13 +801,11 @@ Common trigger values:
 - `"long_pressed_repeat"` - Held down (repeats)
 - `"all"` - Any event
 
-#### Custom Callback Events (Advanced)
-
-**XML:**
+**Example with user data:**
 ```xml
 <lv_button>
     <lv_label text="Click"/>
-    <lv_event-call_function trigger="clicked" callback="my_handler" user_data="42"/>
+    <event_cb callback="my_handler" trigger="clicked" user_data="button_1"/>
 </lv_button>
 ```
 
@@ -764,12 +815,11 @@ Common trigger values:
 lv_xml_register_event_cb(NULL, "my_handler", my_handler_function);
 
 // Standard LVGL event handler signature
-void my_handler_function(lv_event_t* e) {
+static void my_handler_function(lv_event_t* e) {
     const char* user_data = lv_event_get_user_data(e);
-    int value = atoi(user_data);
 
     // Handle event
-    LV_LOG_USER("Button clicked with value: %d", value);
+    LV_LOG_USER("Button clicked: %s", user_data);
 }
 ```
 
@@ -1078,6 +1128,65 @@ The script reads icon definitions from `include/ui_fonts.h` and writes UTF-8 byt
 ---
 
 ## Troubleshooting
+
+### Critical XML Attribute Gotchas ⚠️
+
+**IMPORTANT:** LVGL 9 XML parser has several common pitfalls that cause silent failures:
+
+#### 1. zoom Attribute Doesn't Exist
+
+**Problem:** Using `zoom="..."` on `lv_image` elements has no effect
+```xml
+<!-- ❌ WRONG - zoom doesn't exist in LVGL 9 -->
+<lv_image src="my_icon" zoom="128"/>
+```
+
+**Solution:** Use `scale_x` and `scale_y` where 256 = 100%
+```xml
+<!-- ✅ CORRECT - scale_x and scale_y (256 = 100%) -->
+<lv_image src="my_icon" scale_x="128" scale_y="128"/>  <!-- 50% size -->
+<lv_image src="my_icon" scale_x="512" scale_y="512"/>  <!-- 200% size -->
+```
+
+**Valid lv_image Attributes:**
+- `src` - image source
+- `inner_align` - alignment within widget bounds
+- `rotation` - rotation angle (0-3600, in 0.1 degree units)
+- `scale_x`, `scale_y` - scaling (256 = 100%)
+- `pivot` - rotation pivot point
+
+Source: `/lvgl/src/others/xml/parsers/lv_xml_image_parser.c:63-72`
+
+#### 2. Must Use Full Words, Not Abbreviations
+
+**Problem:** Using `style_img_recolor` instead of `style_image_recolor`
+```xml
+<!-- ❌ WRONG - 'img' abbreviation not recognized -->
+<lv_image src="icon" style_img_recolor="#ff0000" style_img_recolor_opa="255"/>
+```
+
+**Solution:** Always use full words in XML attribute names
+```xml
+<!-- ✅ CORRECT - full word 'image' required -->
+<lv_image src="icon" style_image_recolor="#ff0000" style_image_recolor_opa="255"/>
+```
+
+**Common Mistakes:**
+- `style_img_recolor` → `style_image_recolor` ✅
+- `style_txt_color` → `style_text_color` ✅
+- `style_bg_color` → `style_bg_color` ✅ (already correct)
+
+Source: `/lvgl/src/others/xml/lv_xml_style.c:240-241`
+
+#### 3. Silent Failures
+
+**Problem:** Unknown attributes are silently ignored without warnings
+
+**Solution:** When XML attributes don't work:
+1. Check parser source code in `/lvgl/src/others/xml/parsers/`
+2. Verify exact attribute names (no abbreviations)
+3. Check if attribute exists for that widget type
+4. Test with known-working examples first
 
 ### Common Issues
 

@@ -32,6 +32,7 @@
 #include "ui_panel_controls_extrusion.h"
 #include "ui_panel_print_status.h"
 #include "ui_component_keypad.h"
+#include "ui_icon.h"
 #include <SDL.h>
 #include <cstdio>
 #include <cstring>
@@ -291,9 +292,13 @@ int main(int argc, char** argv) {
     // Register Material Design icons (64x64, scalable)
     material_icons_register();
 
+    // Register custom icon widget (must be before icon.xml component registration)
+    ui_icon_register_widget();
+
     // Register XML components (globals first to make constants available)
     LV_LOG_USER("Registering XML components...");
     lv_xml_component_register_from_file("A:ui_xml/globals.xml");
+    lv_xml_component_register_from_file("A:ui_xml/icon.xml");
     lv_xml_component_register_from_file("A:ui_xml/header_bar.xml");
     lv_xml_component_register_from_file("A:ui_xml/confirmation_dialog.xml");
     lv_xml_component_register_from_file("A:ui_xml/numeric_keypad_modal.xml");

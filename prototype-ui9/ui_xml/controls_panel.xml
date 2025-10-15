@@ -45,11 +45,9 @@
 				        style_border_width="0">
 
 					<!-- Icon -->
-					<lv_image src="mat_move"
-					          align="center"
-					          style_img_recolor="#primary_color"
-					          style_img_recolor_opa="100%"
-					          style_pad_bottom="16"/>
+					<icon src="mat_move"
+					      variant="accent"
+					      style_pad_bottom="16"/>
 
 					<!-- Label -->
 					<lv_label text="Movement &amp; Home"
@@ -75,11 +73,9 @@
 				        style_border_width="0">
 
 					<!-- Icon -->
-					<lv_image src="mat_heater"
-					          align="center"
-					          style_img_recolor="#primary_color"
-					          style_img_recolor_opa="100%"
-					          style_pad_bottom="16"/>
+					<icon src="mat_heater"
+					      variant="accent"
+					      style_pad_bottom="16"/>
 
 					<!-- Label -->
 					<lv_label text="Nozzle Temp"
@@ -105,11 +101,9 @@
 				        style_border_width="0">
 
 					<!-- Icon -->
-					<lv_image src="mat_bed"
-					          align="center"
-					          style_img_recolor="#primary_color"
-					          style_img_recolor_opa="100%"
-					          style_pad_bottom="16"/>
+					<icon src="mat_bed"
+					      variant="accent"
+					      style_pad_bottom="16"/>
 
 					<!-- Label -->
 					<lv_label text="Heatbed Temp"
@@ -135,11 +129,9 @@
 				        style_border_width="0">
 
 					<!-- Icon -->
-					<lv_image src="mat_extrude"
-					          align="center"
-					          style_img_recolor="#primary_color"
-					          style_img_recolor_opa="100%"
-					          style_pad_bottom="16"/>
+					<icon src="mat_extrude"
+					      variant="accent"
+					      style_pad_bottom="16"/>
 
 					<!-- Label -->
 					<lv_label text="Extrude/Retract"
@@ -166,11 +158,9 @@
 				        style_opa="128">  <!-- Disabled appearance -->
 
 					<!-- Icon -->
-					<lv_image src="mat_fan"
-					          align="center"
-					          style_img_recolor="#text_secondary"
-					          style_img_recolor_opa="100%"
-					          style_pad_bottom="16"/>
+					<icon src="mat_fan"
+					      variant="secondary"
+					      style_pad_bottom="16"/>
 
 					<!-- Label -->
 					<lv_label text="Fan Control"
@@ -196,11 +186,9 @@
 				        style_border_width="0">
 
 					<!-- Icon -->
-					<lv_image src="mat_motor_off"
-					          align="center"
-					          style_img_recolor="#primary_color"
-					          style_img_recolor_opa="100%"
-					          style_pad_bottom="16"/>
+					<icon src="mat_motor_off"
+					      variant="accent"
+					      style_pad_bottom="16"/>
 
 					<!-- Label -->
 					<lv_label text="Motors Disable"

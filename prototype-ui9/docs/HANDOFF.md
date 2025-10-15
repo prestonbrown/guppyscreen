@@ -1,22 +1,269 @@
 # Session Handoff Document
 
-**Last Session:** 2025-10-14
-**Session Focus:** Material Design Icon Migration (FontAwesome Replacement)
-**Status:** ~60% Complete - Major UI panels converted, remaining: print file cards, keypad, minor components
+**Last Session:** 2025-10-15
+**Session Focus:** Home Panel Layout Finalization + LVGL XML Event System Investigation
+**Status:** 100% Complete - Home panel layout perfect, light toggle working, critical LVGL docs discrepancy discovered
 
 ---
 
-## Session Summary
+## Current Session Summary (2025-10-15)
 
-Successfully migrated **major UI panels from FontAwesome fonts to Material Design images**:
+**HOME PANEL LAYOUT FIXES:** Resolved scrollbar, centering, and divider spacing issues. Discovered critical discrepancy between LVGL online documentation and source code for XML event callbacks.
 
-1. **Navigation Bar** - All 6 icons using Material Design with dynamic recoloring (active=red, inactive=white)
+**Four Issues Resolved:**
+
+1. **Vertical Scrollbar Elimination**
+   - **Problem:** Status card padding (`20px all sides = 40px vertical`) exceeded available height
+   - **Solution:** Removed `style_pad_all="#padding_normal"` from status_card
+   - **Pattern:** Let flex layout handle spacing, avoid padding on flex containers that must fit exactly
+
+2. **Vertical Centering**
+   - **Problem:** After removing padding, content appeared top-aligned
+   - **Root Cause:** Missing `style_flex_cross_place="center"` on row-layout card
+   - **Solution:** Added cross-axis centering + changed sections from `space_around` to `center`
+   - **Pattern:** Row layout needs cross-axis (vertical) centering explicitly set
+
+3. **Divider Spacing**
+   - **Problem:** Tried wrappers with `height="100%"` + `style_pad_ver="12"` = 24px overflow
+   - **Solution:** Use `style_margin_ver="12"` directly on dividers (margin doesn't add to height)
+   - **Pattern:** **Margin for insets, padding for internal spacing** - Critical distinction!
+
+4. **Light Toggle Click Not Firing**
+   - **Problem:** XML `<event_cb>` element not triggering callback
+   - **Investigation:** Read LVGL source code (`lvgl/src/others/xml/lv_xml.c:113`)
+   - **CRITICAL DISCOVERY:** LVGL registers element as `"lv_event-call_function"`, NOT `"event_cb"`
+   - **Root Cause:** Online docs (https://docs.lvgl.io/master/details/xml/ui_elements/events.html) use `<event_cb>` but source code uses `<lv_event-call_function>`
+   - **Solution:** Changed tag name from `<event_cb>` to `<lv_event-call_function>`
+   - **Verification:** Test file `lvgl/tests/src/test_cases/xml/test_xml_event.c:78` confirms `<lv_event-call_function>`
+
+**Critical Pattern Discovered - LVGL XML Event Callbacks:**
+
+```xml
+<!-- CORRECT (matches source code) -->
+<lv_button name="my_button">
+    <lv_event-call_function trigger="clicked" callback="my_handler"/>
+</lv_button>
+
+<!-- WRONG (what online docs show, but doesn't exist in source) -->
+<lv_button name="my_button">
+    <event_cb trigger="clicked" callback="my_handler"/>
+</lv_button>
+```
+
+**Registration in C++ (BEFORE XML loads):**
+```cpp
+lv_xml_register_event_cb(NULL, "my_handler", my_handler_function);
+```
+
+**Documentation Updated:**
+- `docs/LVGL9_XML_GUIDE.md:760-790` - Added WARNING about `<event_cb>` vs `<lv_event-call_function>`
+- Added TODO note: Future refactor needed if LVGL standardizes naming
+- Documented source code reference: `lvgl/src/others/xml/lv_xml.c:113`
+- Added comment in `home_panel.xml:215` noting discrepancy
+
+**Additional Fixes:**
+- Changed light button from `<lv_obj clickable="true">` to `<lv_button>` (proper interactive widget)
+- Fixed subject bindings: removed `$` prefix (for global subjects, not component parameters)
+- Changed light icon from `<icon>` to `<lv_image>` (allows C++ recolor API)
+
+**Key Takeaway:**
+When LVGL XML features don't work, **read the source code** (`lvgl/src/others/xml/*.c`), not just online docs. The source is the definitive reference.
+
+**Files Modified:**
+- `ui_xml/home_panel.xml` - Fixed padding, centering, dividers, event element name
+- `src/ui_panel_home.cpp` - Added debug output
+- `docs/LVGL9_XML_GUIDE.md` - Documented correct event syntax with warnings
+- `prototype-ui9/STATUS.md` - Updated with today's work
+
+**Verification:**
+- ✅ No scrollbar on status card
+- ✅ All sections vertically centered
+- ✅ Dividers properly inset (12px margin top/bottom)
+- ✅ Light toggle fires callback and changes color
+
+---
+
+## Previous Session Summary (2025-10-14)
+
+**ICON COMPONENT REWRITE:** Implemented custom LVGL widget for Material Design icons with semantic properties.
+
+**Problem:** Original icon component used XML-only approach with auto-scale event handler and had unclear syntax. Needed semantic sizing (`size="xl"`) and color variants (`variant="primary"`) but LVGL9 XML doesn't support conditional style application based on string properties.
+
+**Solution:** Hybrid approach - Custom C++ widget extending `lv_image` with property handlers + styles defined in XML for theming.
+
+**Implementation Details:**
+
+1. **Custom Widget Registration** (`ui_icon.cpp`):
+   - Registered with `lv_xml_widget_register("icon", create_cb, apply_cb)`
+   - Create callback: Creates `lv_image`, sets defaults (mat_home, 64×64, no recolor)
+   - Apply callback: Parses `size` and `variant` string properties, applies sizing and styles
+   - Size parser: Maps "xs"→16px, "sm"→24px, "md"→32px, "lg"→48px, "xl"→64px
+   - Variant parser: Maps "primary"/"secondary"/"accent"/"disabled"/"none" to recolor styles
+   - Validates icon sources, logs warnings for invalid values
+
+2. **Style Management** (`globals.xml`):
+   - Added `<styles>` section to globals (now wrapped in `<component>` for valid XML)
+   - 5 variant styles: `variant_primary`, `variant_secondary`, `variant_accent`, `variant_disabled`, `variant_none`
+   - Styles use global color constants: `#text_primary`, `#text_secondary`, `#primary_color`
+   - C++ looks up styles by name using `lv_xml_get_style_by_name(NULL, "variant_xxx")`
+   - Removes old variant styles before applying new one (prevents stacking)
+
+3. **Component Definition** (`icon.xml`):
+   - API properties: `src` (default "mat_home"), `size` (default "xl"), `variant` (default "")
+   - Constants: Size values for xs/sm/md/lg/xl (16/24/32/48/64 pixels)
+   - No styles section (moved to globals for global scope access)
+   - View placeholder - actual widget creation handled by C++
+
+4. **Registration Order** (`main.cpp`):
+   ```cpp
+   material_icons_register();           // Register mat_* image sources
+   ui_icon_register_widget();          // Register custom widget (BEFORE icon.xml)
+   lv_xml_component_register_from_file("A:ui_xml/globals.xml");  // Loads styles
+   lv_xml_component_register_from_file("A:ui_xml/icon.xml");     // Loads component
+   ```
+   - Widget must be registered before component file loads
+   - Styles must be in globals for global scope access
+
+**Files Modified:**
+- `ui_xml/icon.xml` - Complete rewrite, removed old styles/auto-scale approach
+- `include/ui_icon.h` - Replaced `ui_icon_init_auto_scale()` with `ui_icon_register_widget()`
+- `src/ui_icon.cpp` - Complete rewrite as custom LVGL widget
+- `src/main.cpp` - Updated registration calls
+- `ui_xml/globals.xml` - Added `<component>` wrapper + `<styles>` section with icon variants
+- `docs/QUICK_REFERENCE.md` - Updated icon component documentation
+
+**Usage Examples:**
+```xml
+<!-- Defaults: mat_home, 64px, no recolor -->
+<icon/>
+
+<!-- Semantic sizes and variants -->
+<icon src="mat_print" size="xl" variant="primary"/>
+<icon src="mat_pause" size="md" variant="disabled"/>
+<icon src="mat_heater" size="sm" variant="accent"/>
+```
+
+**Technical Notes:**
+- Scale calculated as size × 4 (Material Design icons are 64×64 at scale 256)
+- Property parsing happens in `apply` callback after XML parser processes attributes
+- Style lookup uses global scope (NULL) since styles are in globals.xml
+- `lv_xml_style_t` has `.style` member as struct (not pointer), use `&style->style`
+
+**Benefits:**
+✅ Semantic properties (`size="xl"` vs `size="64"`)
+✅ Type-safe validation with helpful warnings
+✅ Color styles in XML for easy theming
+✅ Centralized icon logic
+✅ Eliminated problematic auto-scale event handler
+
+---
+
+## Previous Session Summary (2025-10-14)
+
+**HOME SCREEN BUG FIXES:** Fixed four UI/UX issues in home panel info card:
+
+**Four Bugs Fixed:**
+
+1. **Temperature Icon Not Intuitive**
+   - Changed `mat_heater` → `mat_extruder` (nozzle icon is clearer)
+
+2. **Network Icon Wrong Widget Type**
+   - Changed Material Design `<icon>` → FontAwesome `<lv_label bind_text="network_icon">`
+   - C++ was setting FontAwesome constants but XML had wrong widget type
+
+3. **Light Icon Color Not Changing on Toggle**
+   - Converted from string subject → color subject
+   - Updated observer to use `lv_obj_set_style_img_recolor()` (correct image API)
+   - Followed nav icon observer pattern from `ui_nav.cpp`
+
+4. **Dividers Not Vertically Centered**
+   - Removed padding from 1px dividers (padding on 1px objects causes render artifacts)
+   - Let `align_self="stretch"` handle full height spanning
+
+**Key Pattern Discovered:**
+
+Image recoloring requires **color subjects** + **image recolor API**:
+```cpp
+// WRONG: String subject + text color
+lv_subject_init_string(&subject, buffer, NULL, size, "0xFFD700");
+lv_obj_set_style_text_color(widget, color, 0);
+
+// CORRECT: Color subject + image recolor
+lv_subject_init_color(&subject, lv_color_hex(0xFFD700));
+lv_obj_set_style_img_recolor(widget, color, LV_PART_MAIN);
+lv_obj_set_style_img_recolor_opa(widget, 255, LV_PART_MAIN);
+```
+
+**Files Modified:**
+- `ui_xml/home_panel.xml` - Icon changes, widget types, divider padding
+- `src/ui_panel_home.cpp` - Color subject + observer for light icon
+
+**Verification:** All bugs fixed and tested with screenshot
+
+**Lessons Learned:**
+
+1. **Icon Widget Type Matters:**
+   - Material Design icons = `<icon>` component (image-based)
+   - FontAwesome icons = `<lv_label>` with font (text-based)
+   - Can't mix types - XML widget must match C++ expectations
+
+2. **Subject Type Must Match API:**
+   - Image recoloring requires **color subject** (`lv_subject_init_color`)
+   - Text updates use **string subject** (`lv_subject_init_string`)
+   - Using wrong type = observer can't apply updates correctly
+
+3. **Padding on Thin Elements:**
+   - Padding on 1px wide objects causes rendering artifacts
+   - For dividers, use `align_self="stretch"` without padding
+   - Let parent container's padding handle spacing
+
+4. **Observer Pattern Reference:**
+   - Always check existing working examples (`ui_nav.cpp` for icon coloring)
+   - Observer callbacks should use subject type-specific getters
+   - Apply styles using correct widget API (image vs text vs value)
+
+---
+
+## Previous Session Summary (2025-10-14)
+
+**CRITICAL BUG FIXES:** Discovered and fixed TWO systematic XML attribute failures affecting entire UI:
+
+**Bug #1: Invalid Recolor Attribute Names**
+1. **Root Cause** - LVGL 9 XML parser expects `style_image_recolor`, not `style_img_recolor`
+2. **Impact** - All 15 XML files had invalid abbreviated attribute names, leaving icons white
+3. **Solution** - Global search-replace: `style_img_recolor` → `style_image_recolor`
+4. **Lesson** - LVGL 9 XML uses full words, never abbreviate (image not img, text not txt, etc.)
+
+**Bug #2: zoom Attribute Doesn't Exist**
+1. **Root Cause** - LVGL 9 uses `scale_x`/`scale_y` attributes, NOT `zoom` (unlike LVGL 8)
+2. **Impact** - All 23 `zoom="..."` instances silently ignored, icons rendered at full 64px causing clipping
+3. **Solution** - Global replace: `zoom="X"` → `scale_x="X" scale_y="X"` (where 256 = 100%)
+4. **Lesson** - Always verify XML attributes against parser source code when they don't work
+
+**Print Cards Also Fixed:**
+- Added filament weight data (`filament_weight` attribute)
+- Changed icon from `mat_spoolman` → `mat_layers` (better weight/quantity metaphor)
+- Proper icon scaling: 56 for 14px icons, 48 for 12px icons (14/64 * 256 = 56)
+
+**Material Design Icon Migration - NOW COMPLETE:**
+
+1. **Navigation Bar** - All 6 icons using Material Design with XML recoloring (active=red, inactive=white)
 2. **Icon Conversion System** - Automated SVG→PNG→LVGL 9 workflow using Inkscape + LVGLImage.py
 3. **Critical Bug Fix** - Discovered ImageMagick loses alpha channel; switched to Inkscape for proper transparency
-4. **Major Panels Converted** - Home, Controls, Temperature (Nozzle/Bed), Motion, Extrusion, Header Bar
+4. **All Panels Converted** - Home, Controls, Temperature (Nozzle/Bed), Motion, Extrusion, Header Bar, Print Cards
 5. **Documentation** - Comprehensive icon system docs in HANDOFF.md and QUICK_REFERENCE.md
 
-**Key Achievement:** All 56 Material Design icons successfully converted to LVGL 9 RGB565A8 format with proper alpha transparency. Icons render crisp and clean across all screen sizes with dynamic recoloring.
+**Key Achievements:**
+- All 56 Material Design icons successfully converted to LVGL 9 RGB565A8 format with proper alpha transparency
+- **XML recoloring works everywhere** - No C++ recolor code needed (after fixing `image_recolor` vs `img_recolor`)
+- **XML scaling works everywhere** - Proper icon sizing via `scale_x`/`scale_y` (after discovering `zoom` doesn't exist)
+- Icons render crisp and clean across all screen sizes with dynamic recoloring via XML attributes
+
+**Critical Discoveries - LVGL 9 XML Gotchas:**
+1. ❌ **No abbreviations**: Must use `style_image_recolor` not `style_img_recolor`
+2. ❌ **No zoom attribute**: Must use `scale_x`/`scale_y` (256 = 100%), NOT `zoom`
+3. ⚠️ **Silent failures**: Parser ignores unknown attributes without warnings
+4. ✅ **Check source**: When attributes don't work, verify against `/lvgl/src/others/xml/parsers/` implementations
 
 **Technical Stack:**
 - **Inkscape:** SVG→PNG conversion (preserves alpha transparency)
@@ -28,14 +275,12 @@ Successfully migrated **major UI panels from FontAwesome fonts to Material Desig
 
 ## What Needs to be Done Next
 
-### Priority 1: Complete FontAwesome Icon Replacement 🔄 IN PROGRESS
+### Priority 1: Material Design Icon Migration ✅ COMPLETE
 
-**Objective:** Replace remaining 71 FontAwesome icon occurrences with Material Design equivalents.
+**Status:** 100% Complete - All Material icons working with correct colors
 
-**Status:** ~60% Complete - Major panels done, remaining: print file cards, numeric keypad, minor UI components
-
-**Completed Files (8 of 18):**
-- ✅ `navigation_bar.xml` - All nav icons
+**All Files Completed:**
+- ✅ `navigation_bar.xml` - All nav icons with XML recoloring
 - ✅ `home_panel.xml` - Heater, network, light icons
 - ✅ `controls_panel.xml` - All 6 launcher card icons
 - ✅ `nozzle_temp_panel.xml` - Heater icon
@@ -43,58 +288,42 @@ Successfully migrated **major UI panels from FontAwesome fonts to Material Desig
 - ✅ `motion_panel.xml` - Home button, Z-axis arrows
 - ✅ `extrusion_panel.xml` - Extrude icon
 - ✅ `header_bar.xml` - Back button
+- ✅ `numeric_keypad_modal.xml` - Backspace (mat_delete) and back icons
+- ✅ `print_status_panel.xml` - Back arrow
+- ✅ `print_file_card_5col.xml` - Clock (mat_clock) and filament (mat_layers)
+- ✅ `print_file_card_4col.xml` - Clock and filament icons
+- ✅ `print_file_card_3col.xml` - Clock and filament icons
+- ✅ `print_file_card.xml` - Clock and filament icons
+- ✅ `print_file_detail.xml` - Clock and filament icons
+- ✅ `test_card.xml` - Clock and filament icons
 
-**Remaining Files (10 of 18) - Needs Icon Mapping Verification:**
+**Icon Mappings Finalized:**
+- Clock → `mat_clock` ✓
+- Filament/Weight → `mat_layers` ✓ (stacked layers = quantity/amount metaphor)
+- Backspace → `mat_delete` ✓
+- Back chevron → `mat_back` ✓
 
-**IMPORTANT:** Before replacing, verify Material Design equivalents exist and match semantically:
+**Critical Bug Fixed:**
+- Changed all `style_img_recolor` → `style_image_recolor` (15 files)
+- Changed all `style_img_recolor_opa` → `style_image_recolor_opa` (15 files)
+- All Material icons now render with correct primary/secondary colors via XML
 
-1. **`numeric_keypad_modal.xml` (2 icons):**
-   - `#icon_chevron_left` → `mat_back` ✓ (already verified for header_bar)
-   - `#icon_backspace` → Need Material equivalent (delete icon? backspace icon?)
+**Remaining FontAwesome Usage:**
+- `print_select_panel.xml` - View toggle icon (list/grid) - No Material equivalent exists
+- `globals.xml` - Legacy icon constants for reference
+- `motion_panel.xml` - Custom Unicode arrow font (↑↓←→↖↗↙↘) - intentionally kept
 
-2. **`print_select_panel.xml` (1 icon):**
-   - `#icon_list` → Need Material equivalent (list view icon?)
+### Priority 2: Home Panel Polish ✅ COMPLETE
 
-3. **`print_status_panel.xml` (1 icon):**
-   - `#icon_chevron_left` → `mat_back` ✓
+**Status:** ✅ Complete - All home panel bugs fixed
 
-4. **Print File Cards (5 files × 2 icons each = 10 icons):**
-   - `print_file_card.xml`
-   - `print_file_card_3col.xml`
-   - `print_file_card_4col.xml`
-   - `print_file_card_5col.xml`
-   - `print_file_detail.xml`
+**Bugs Fixed:**
+- ✅ Temperature icon more intuitive (`mat_extruder` instead of `mat_heater`)
+- ✅ Network icon showing correct WiFi signal (fixed widget type mismatch)
+- ✅ Light icon toggles color gray→yellow (fixed color subject + observer)
+- ✅ Dividers vertically centered (removed padding artifacts)
 
-   Icons in each:
-   - `#icon_clock` → `mat_clock` ✓ (exists in material_icons.cpp)
-   - `#icon_leaf` → Need Material equivalent (eco/sustainability icon? filament spool icon?)
-
-5. **`test_card.xml` (2 icons):**
-   - Same as print file cards (clock, leaf)
-
-**Icon Mapping Questions to Resolve:**
-- **Backspace:** Which Material icon? (`mat_delete`? Need new icon?)
-- **List:** Which Material icon? (Need list/menu icon?)
-- **Leaf (eco/material):** Which Material icon? (`mat_filament`? Something else?)
-
-**Next Steps (For Fresh Session):**
-1. **Verify Icon Mappings:** Review available Material icons, confirm semantic matches
-2. **Replace Verified Icons:** Clock, back chevrons (already mapped)
-3. **Decide on Missing Icons:** Backspace, list, leaf equivalents
-4. **Update Remaining XML Files:** Print cards, keypad, minor components
-5. **Remove FontAwesome:** Delete font files, registration code
-6. **Update Build System:** Remove from Makefile, package.json
-7. **Test All Panels:** Verify icons render correctly across screen sizes
-8. **Final Documentation:** Update with complete migration details
-
-**Material Icons Available (from material_icons.cpp):**
-```
-mat_clock ✓, mat_delete ✓, mat_sd ✓, mat_refresh ✓, mat_filament ✓,
-mat_back ✓, mat_home ✓, mat_print ✓, mat_move ✓, mat_heater ✓,
-mat_bed ✓, mat_extrude ✓, mat_fan ✓, mat_light ✓, mat_network ✓,
-mat_arrow_up ✓, mat_arrow_down ✓, mat_arrow_left ✓, mat_arrow_right ✓,
-... (56 total)
-```
+### Priority 3: Interactive Button Wiring 🔜 NEXT
 
 ---
 

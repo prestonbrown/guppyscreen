@@ -76,13 +76,10 @@
 					style_flex_cross_place="center"
 					style_pad_gap="#padding_medium">
 
-					<lv_image name="back_button"
+					<icon name="back_button"
 						src="mat_back"
-						width="32"
-						height="32"
-						zoom="128"
-						style_img_recolor="#text_primary"
-						style_img_recolor_opa="100%"
+						size="md"
+						variant="primary"
 						style_pad_left="#button_padding"
 						style_pad_right="#button_padding"
 						flag_clickable="true"
@@ -231,7 +228,7 @@
 
 					<lv_button name="btn_backspace" width="#keypad_button_width" height="#keypad_button_height"
 						style_bg_color="#keypad_button_bg" style_radius="12" style_border_width="0">
-						<lv_image src="mat_delete" zoom="128" width="32" height="32" style_img_recolor="#keypad_accent_orange" style_img_recolor_opa="100%" align="center"/>
+						<icon src="mat_delete" size="md" variant="none" style_image_recolor="#keypad_accent_orange" style_image_recolor_opa="100%"/>
 					</lv_button>
 				</lv_obj>
 			</lv_obj>

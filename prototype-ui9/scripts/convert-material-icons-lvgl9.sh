@@ -36,7 +36,7 @@ echo ""
 # Step 2: Convert PNGs to LVGL 9 C arrays
 echo "Step 2: Converting PNGs to LVGL 9 C arrays..."
 # Use RGB565A8: 16-bit RGB565 + 8-bit alpha channel
-# Works better with LVGL's image recoloring
+# Works with C++ recoloring via lv_obj_set_style_img_recolor()
 $VENV_PYTHON scripts/LVGLImage.py \
     --ofmt C \
     --cf RGB565A8 \

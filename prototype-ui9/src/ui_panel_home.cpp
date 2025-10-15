@@ -45,7 +45,6 @@ static char temp_buffer[32];
 static char network_icon_buffer[8];
 static char network_label_buffer[32];
 static char network_color_buffer[16];
-static char light_icon_color_buffer[16];
 
 static bool subjects_initialized = false;
 static bool light_on = false;
@@ -70,7 +69,7 @@ void ui_panel_home_init_subjects() {
     lv_subject_init_string(&network_icon_subject, network_icon_buffer, NULL, sizeof(network_icon_buffer), ICON_WIFI);
     lv_subject_init_string(&network_label_subject, network_label_buffer, NULL, sizeof(network_label_buffer), "Wi-Fi");
     lv_subject_init_string(&network_color_subject, network_color_buffer, NULL, sizeof(network_color_buffer), "0xff4444");
-    lv_subject_init_string(&light_icon_color_subject, light_icon_color_buffer, NULL, sizeof(light_icon_color_buffer), "0x909090");
+    lv_subject_init_color(&light_icon_color_subject, lv_color_hex(0x909090));  // Muted gray for "off" state
 
     // Register subjects globally so XML can bind to them
     lv_xml_register_subject(NULL, "status_text", &status_subject);
@@ -85,7 +84,7 @@ void ui_panel_home_init_subjects() {
 
     subjects_initialized = true;
     printf("DEBUG: Registered subjects: status_text, temp_text, network_icon, network_label, network_color, light_icon_color\n");
-    printf("DEBUG: Registered event callback: light_toggle_cb\n");
+    printf("DEBUG: Registered event callback: light_toggle_cb at address %p\n", (void*)light_toggle_event_cb);
 }
 
 void ui_panel_home_setup_observers(lv_obj_t* panel) {
@@ -175,6 +174,14 @@ void ui_panel_home_setup_observers(lv_obj_t* panel) {
     lv_subject_add_observer(&network_color_subject, network_observer_cb, nullptr);
     lv_subject_add_observer(&light_icon_color_subject, light_observer_cb, nullptr);
 
+    // Apply initial light icon color (observers only fire on *changes*, not initial state)
+    if (light_icon_label) {
+        lv_color_t initial_color = lv_subject_get_color(&light_icon_color_subject);
+        lv_obj_set_style_img_recolor(light_icon_label, initial_color, LV_PART_MAIN);
+        lv_obj_set_style_img_recolor_opa(light_icon_label, 255, LV_PART_MAIN);
+        printf("DEBUG: Applied initial light icon color\n");
+    }
+
     printf("DEBUG: Home panel observers set up successfully\n");
 }
 
@@ -241,10 +248,10 @@ void ui_panel_home_set_light(bool is_on) {
 
     if (is_on) {
         // Light is on - show bright yellow/white
-        lv_subject_copy_string(&light_icon_color_subject, "0xFFD700");
+        lv_subject_set_color(&light_icon_color_subject, lv_color_hex(0xFFD700));
     } else {
-        // Light is off - show muted
-        lv_subject_copy_string(&light_icon_color_subject, "0x909090");
+        // Light is off - show muted gray
+        lv_subject_set_color(&light_icon_color_subject, lv_color_hex(0x909090));
     }
     printf("DEBUG: Updated light state to: %s\n", is_on ? "ON" : "OFF");
 }
@@ -255,6 +262,8 @@ bool ui_panel_home_get_light_state() {
 
 static void light_toggle_event_cb(lv_event_t* e) {
     (void)e;  // Unused parameter
+
+    printf("====== LIGHT BUTTON CLICKED! ======\n");
 
     // Toggle the light state
     ui_panel_home_set_light(!light_on);
@@ -298,18 +307,15 @@ static void network_observer_cb(lv_observer_t* observer, lv_subject_t* subject) 
 // Observer callback for light icon color changes
 static void light_observer_cb(lv_observer_t* observer, lv_subject_t* subject) {
     (void)observer;  // Unused parameter
-    (void)subject;   // Unused parameter
 
     if (!light_icon_label) {
         return;
     }
 
-    // Update light icon color
-    const char* color_str = lv_subject_get_string(&light_icon_color_subject);
-    if (color_str) {
-        uint32_t color = strtoul(color_str, nullptr, 16);
-        lv_obj_set_style_text_color(light_icon_label, lv_color_hex(color), 0);
-    }
+    // Update light icon color using image recolor (Material Design icons are monochrome)
+    lv_color_t color = lv_subject_get_color(subject);
+    lv_obj_set_style_img_recolor(light_icon_label, color, LV_PART_MAIN);
+    lv_obj_set_style_img_recolor_opa(light_icon_label, 255, LV_PART_MAIN);
 
     printf("DEBUG: Light observer updated icon color\n");
 }

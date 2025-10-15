@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<!--
+  Copyright (C) 2025 356C LLC
+  Author: Preston Brown <pbrown@brown-house.net>
+
+  This file is part of GuppyScreen.
+
+  GuppyScreen is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  GuppyScreen is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with GuppyScreen. If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<!--
+  Icon Component - Material Design Icons with Semantic Sizing and Color Variants
+
+  Usage:
+    <icon src="mat_home" size="xl" variant="primary"/>
+
+  Properties:
+    - src: Material icon name (default: "mat_home")
+    - size: Semantic size string - xs, sm, md, lg, xl (default: "xl")
+    - variant: Color variant - primary, secondary, accent, disabled, none (default: none/no recoloring)
+
+  Implementation:
+    This component is backed by a C++ custom widget (ui_icon) that extends lv_image.
+    The C++ code parses the string properties and applies the appropriate styles.
+    Constants and styles are defined here in XML for easy theming without recompilation.
+-->
+
+<component>
+	<api>
+		<prop name="src" type="string" default="mat_home"/>
+		<prop name="size" type="string" default="xl"/>
+		<prop name="variant" type="string" default=""/>
+	</api>
+
+	<consts>
+		<!-- Size constants (width/height in pixels) -->
+		<px name="size_xs" value="16"/>
+		<px name="size_sm" value="24"/>
+		<px name="size_md" value="32"/>
+		<px name="size_lg" value="48"/>
+		<px name="size_xl" value="64"/>
+
+		<!-- Scale constants (size × 4 for 64px base icons) -->
+		<px name="scale_xs" value="64"/>
+		<px name="scale_sm" value="96"/>
+		<px name="scale_md" value="128"/>
+		<px name="scale_lg" value="192"/>
+		<px name="scale_xl" value="256"/>
+	</consts>
+
+	<!--
+	  Note: The view extends lv_image but the actual widget creation and property
+	  handling is done by the C++ ui_icon custom widget class. The C++ code will
+	  parse the src, size, and variant properties and configure the lv_image accordingly.
+	-->
+	<view extends="lv_image" src="$src"/>
+</component>

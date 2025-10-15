@@ -1,8 +1,293 @@
 # Project Status - LVGL 9 UI Prototype
 
-**Last Updated:** 2025-10-14 (Material Design Icon Migration - COMPLETE)
+**Last Updated:** 2025-10-15 (Home Panel Layout Complete + LVGL XML Event System Debugged)
+
+## Recent Updates (2025-10-15)
+
+### Home Panel Layout Finalization & XML Event Discovery ✅ COMPLETE
+
+**Objective:** Fix home panel layout issues (scrollbar, centering, light toggle) and discover correct LVGL XML event callback syntax.
+
+**Status:** 100% Complete - Layout perfect, light toggle working via XML, critical LVGL documentation discrepancy discovered
+
+**Four Issues Resolved:**
+
+**Issue #1: Vertical Scrollbar on Status Card**
+- **Problem:** Status card had persistent vertical scrollbar indicating content overflow
+- **Root Cause:** `style_pad_all="#padding_normal"` (20px) created 40px total vertical padding, exceeding available height
+- **Solution:** Removed padding from status_card, let flex layout handle spacing
+- **File:** `ui_xml/home_panel.xml:209-211` (removed `style_pad_all` attribute)
+
+**Issue #2: Content Not Vertically Centered**
+- **Problem:** After removing padding, all 3 sections appeared top-aligned instead of vertically centered
+- **Root Cause:** Missing `style_flex_cross_place="center"` on status_card (row layout)
+- **Solution:** Added cross-axis centering to parent card, changed sections from `space_around` to `center`
+- **Files:** `ui_xml/home_panel.xml:147,154,175` (added centering attributes)
+
+**Issue #3: Dividers Taking Too Much Space**
+- **Problem:** Initially tried wrappers with `height="100%"` + `style_pad_ver="12"` = 24px overflow per divider
+- **Root Cause:** Padding adds to total element height, causing overflow
+- **Solution:** Use `style_margin_ver="12"` directly on dividers (margin pushes inward without adding to height)
+- **Pattern:** Margin for insets, padding for internal spacing
+- **Files:** `ui_xml/home_panel.xml:167,189` (changed from padding wrappers to margin on dividers)
+
+**Issue #4: Light Toggle Click Not Firing**
+- **Problem:** XML `<event_cb>` element not triggering registered callback when clicked
+- **Root Cause:** LVGL source code uses `<lv_event-call_function>` as element name, NOT `<event_cb>`
+- **Investigation Process:**
+  1. User reported: "Clicking shows LVGL INFO but no callback debugging"
+  2. Checked LVGL source: `lvgl/src/others/xml/lv_xml.c:113` registers `"lv_event-call_function"`
+  3. Confirmed in test file: `lvgl/tests/src/test_cases/xml/test_xml_event.c:78` uses `<lv_event-call_function>`
+- **CRITICAL DISCOVERY:** LVGL online documentation (https://docs.lvgl.io/master/details/xml/ui_elements/events.html) references `<event_cb>`, but this is **incorrect**
+- **Solution:** Changed `<event_cb callback="light_toggle_cb" trigger="clicked"/>` to `<lv_event-call_function trigger="clicked" callback="light_toggle_cb"/>`
+- **Files:** `ui_xml/home_panel.xml:216`, `docs/LVGL9_XML_GUIDE.md:760-790`
+
+**Additional Improvements:**
+
+**Widget Type Changed:**
+- Light button changed from `<lv_obj clickable="true">` to `<lv_button>`
+- Added `style_shadow_width="0"` to disable default button shadow
+- Proper interactive widget type for click events
+
+**Subject Binding Fixes:**
+- Fixed temperature/network subject bindings: removed `$` prefix (used for component parameters, not global subjects)
+- Changed `bind_text="$temp_text"` → `bind_text="temp_text"`
+- Light icon changed from `<icon>` component to `<lv_image>` to allow C++ `lv_obj_set_style_img_recolor()`
+
+**Technical Patterns Discovered:**
+
+**Margin vs Padding for Dividers:**
+```xml
+<!-- WRONG: Padding adds to height, causes overflow -->
+<lv_obj width="1" height="100%" style_pad_ver="12"/>  <!-- 100% + 24px = overflow -->
+
+<!-- CORRECT: Margin pushes inward, no overflow -->
+<lv_obj width="1" height="100%" style_margin_ver="12"/>  <!-- Creates inset, no overflow -->
+```
+
+**Flex Cross-Axis Centering:**
+```xml
+<!-- Status card with row layout needs cross-axis (vertical) centering -->
+<lv_obj flex_flow="row" style_flex_cross_place="center">
+    <!-- Children now vertically centered -->
+</lv_obj>
+```
+
+**LVGL XML Event Callback Pattern:**
+```xml
+<!-- CORRECT (source code) -->
+<lv_button name="my_button">
+    <lv_event-call_function trigger="clicked" callback="my_handler"/>
+</lv_button>
+
+<!-- WRONG (online docs say this, but it doesn't exist) -->
+<lv_button name="my_button">
+    <event_cb trigger="clicked" callback="my_handler"/>
+</lv_button>
+```
+
+**Documentation Updated:**
+- `docs/LVGL9_XML_GUIDE.md` - Added WARNING about `<event_cb>` vs `<lv_event-call_function>` discrepancy
+- Added note: "Online docs reference `<event_cb>`, but LVGL source uses `<lv_event-call_function>`"
+- Added TODO: "Future refactor may be needed if LVGL standardizes on `<event_cb>` name"
+- Source code reference: `lvgl/src/others/xml/lv_xml.c:113`
+
+**Files Modified:**
+- `ui_xml/home_panel.xml` - Fixed padding, centering, dividers, event element name
+- `src/ui_panel_home.cpp` - Added debug output, fixed subject bindings
+- `docs/LVGL9_XML_GUIDE.md` - Documented correct event callback syntax with warnings
+
+**Verification:**
+- ✅ No vertical scrollbar on status card
+- ✅ All 3 sections vertically centered in card
+- ✅ Dividers have 12px top/bottom insets (via margin)
+- ✅ Light toggle fires callback and changes color: gray (off) ↔ gold (on)
+- ✅ Temperature text displays correctly
+- ✅ Network icon displays correctly
+
+**Key Takeaway:**
+When LVGL XML features don't work, check the **source code** (`lvgl/src/others/xml/*.c`), not just the online documentation. The source is the definitive reference.
+
+---
 
 ## Recent Updates (2025-10-14)
+
+### Home Screen Bug Fixes ✅ COMPLETE
+
+**Objective:** Fix four UI bugs on home panel info card (temperature icon, network icon, light toggle, dividers).
+
+**Status:** 100% Complete - All home screen bugs fixed and verified
+
+**Four Bugs Fixed:**
+
+**Bug #1: Temperature Icon Not Intuitive**
+- **Problem:** Using `mat_heater` (radiator/coil icon) - not clearly related to temperature
+- **Solution:** Changed to `mat_extruder` (nozzle with heat waves) - more intuitive for printer temperature
+- **File:** `ui_xml/home_panel.xml:50`
+
+**Bug #2: Network Icon Wrong Type**
+- **Problem:** Using Material Design `<icon>` component but C++ expects FontAwesome label
+- **Impact:** Showed tablet/device icon instead of WiFi signal
+- **Root Cause:** XML/C++ mismatch - C++ sets `ICON_WIFI` string constant but XML used image widget
+- **Solution:** Changed from `<icon src="mat_network">` to `<lv_label bind_text="network_icon" style_text_font="fa_icons_48">`
+- **File:** `ui_xml/home_panel.xml:59`
+
+**Bug #3: Light Icon Color Not Changing**
+- **Problem:** Clicking light button changed state (debug output confirmed) but icon stayed gray
+- **Root Cause:** Using string subject + `set_style_text_color()` on image widget (wrong API)
+- **Solution:** Converted to color subject + observer using `lv_obj_set_style_img_recolor()` (correct image recolor API)
+- **Pattern:** Followed navigation icon pattern from `ui_nav.cpp:67-73`
+- **Files:** `src/ui_panel_home.cpp:72,243,246,306-308`
+
+**Bug #4: Dividers Not Vertically Centered**
+- **Problem:** 1px dividers with top/bottom padding rendered misaligned (appeared top-heavy)
+- **Root Cause:** Padding on 1px wide objects causes rendering artifacts
+- **Solution:** Removed `style_pad_top="12" style_pad_bottom="12"` from dividers - let `style_align_self="stretch"` handle full height
+- **Files:** `ui_xml/home_panel.xml:55,64`
+
+**Technical Details:**
+
+Color Subject Pattern (for image recolor):
+```cpp
+// Initialize with color (not string)
+lv_subject_init_color(&light_icon_color_subject, lv_color_hex(0x909090));
+
+// Update with color API (not string copy)
+lv_subject_set_color(&light_icon_color_subject, lv_color_hex(0xFFD700));
+
+// Observer uses image recolor (not text color)
+lv_color_t color = lv_subject_get_color(subject);
+lv_obj_set_style_img_recolor(light_icon_label, color, LV_PART_MAIN);
+lv_obj_set_style_img_recolor_opa(light_icon_label, 255, LV_PART_MAIN);
+```
+
+**Verification:**
+- ✅ Temperature icon now shows nozzle/hotend (clearer metaphor)
+- ✅ Network icon shows WiFi signal in red (correct icon type)
+- ✅ Light icon changes gray→yellow when toggled (color recoloring works)
+- ✅ Dividers vertically centered, spanning full card height
+- ✅ Screenshot: `/tmp/ui-screenshot-home-final.png`
+
+**Files Modified:**
+- `ui_xml/home_panel.xml` - Icon sources, widget types, divider padding
+- `src/ui_panel_home.cpp` - Light subject/observer using color API
+
+---
+
+## Previous Updates (2025-10-14)
+
+### Critical XML Attribute Bugs Fixed ✅ COMPLETE
+
+**Objective:** Fix systematic icon rendering failures affecting all Material Design icons across entire UI.
+
+**Status:** 100% Complete - All Material icons now render with correct colors AND sizes via XML attributes
+
+**TWO Root Causes Identified:**
+
+**Bug #1: Invalid Recolor Attribute Names**
+- LVGL 9 XML parser expects `style_image_recolor`, not `style_img_recolor`
+- All 15 XML files incorrectly used abbreviated `img` instead of full word `image`
+- Parser silently ignored invalid attributes, leaving icons white instead of colored
+- Affected **every Material icon** across navigation, controls, temperature panels, print cards, etc.
+
+**Bug #2: zoom Attribute Doesn't Exist in LVGL 9**
+- LVGL 9 uses `scale_x` and `scale_y` attributes, NOT `zoom`
+- All 23 instances of `zoom="..."` were being completely ignored by parser
+- Icons rendered at full 64×64px size, causing severe clipping in small containers
+- Print card icons were completely unreadable due to overflow clipping
+
+**Bug #1 - Wrong Attribute Names:**
+```xml
+<!-- WRONG - Parser silently ignores abbreviated 'img' -->
+<lv_image src="mat_heater"
+          style_img_recolor="#primary_color"
+          style_img_recolor_opa="100%"/>
+
+<!-- CORRECT - Must use full word 'image' -->
+<lv_image src="mat_heater"
+          style_image_recolor="#primary_color"
+          style_image_recolor_opa="255"/>
+```
+
+**Bug #2 - zoom Doesn't Exist:**
+```xml
+<!-- WRONG - zoom attribute doesn't exist in LVGL 9 -->
+<lv_image src="mat_clock"
+          width="14" height="14"
+          zoom="180"/>
+
+<!-- CORRECT - Use scale_x and scale_y (256 = 100%) -->
+<lv_image src="mat_clock"
+          width="14" height="14"
+          scale_x="56" scale_y="56"/>
+```
+
+**Discovery Process:**
+1. **Icons clipping issue** - Print card metadata icons completely clipped/unreadable
+2. **Icons wrong color** - All Material icons rendering white instead of red
+3. **First investigation** - Nav bar icons worked (used C++ `lv_obj_set_style_img_recolor()`)
+4. **Found recolor bug** - Checked `/lvgl/src/others/xml/lv_xml_style.c:240-241` → parser uses `image_recolor` not `img_recolor`
+5. **Icons still clipping** - Fixed recolor but zoom values had no effect
+6. **Found zoom bug** - Checked `/lvgl/src/others/xml/parsers/lv_xml_image_parser.c:66-67` → only `scale_x`/`scale_y` exist, NO `zoom`
+
+**Files Fixed (15 total):**
+- `ui_xml/home_panel.xml`
+- `ui_xml/controls_panel.xml`
+- `ui_xml/nozzle_temp_panel.xml`
+- `ui_xml/bed_temp_panel.xml`
+- `ui_xml/motion_panel.xml`
+- `ui_xml/extrusion_panel.xml`
+- `ui_xml/print_file_card_5col.xml`
+- `ui_xml/print_file_card_4col.xml`
+- `ui_xml/print_file_card_3col.xml`
+- `ui_xml/print_file_card.xml` (original)
+- `ui_xml/print_file_detail.xml`
+- `ui_xml/test_card.xml`
+- `ui_xml/header_bar.xml`
+- `ui_xml/numeric_keypad_modal.xml`
+- `ui_xml/print_status_panel.xml`
+
+**Global Fixes Applied:**
+```bash
+# Fix #1: Replace all img_recolor with image_recolor (15 files)
+find ui_xml -name "*.xml" -exec sed -i '' 's/style_img_recolor="/style_image_recolor="/g' {} \;
+find ui_xml -name "*.xml" -exec sed -i '' 's/style_img_recolor_opa="/style_image_recolor_opa="/g' {} \;
+
+# Fix #2: Replace all zoom with scale_x/scale_y (23 instances)
+find ui_xml -name "*.xml" -exec sed -i '' 's/zoom="180"/scale_x="72" scale_y="72"/g' {} \;
+find ui_xml -name "*.xml" -exec sed -i '' 's/zoom="128"/scale_x="128" scale_y="128"/g' {} \;
+find ui_xml -name "*.xml" -exec sed -i '' 's/zoom="64"/scale_x="64" scale_y="64"/g' {} \;
+find ui_xml -name "*.xml" -exec sed -i '' 's/zoom="56"/scale_x="56" scale_y="56"/g' {} \;
+find ui_xml -name "*.xml" -exec sed -i '' 's/zoom="48"/scale_x="48" scale_y="48"/g' {} \;
+# ... (replaced all zoom instances across entire project)
+```
+
+**Additional Print Card Improvements:**
+1. **Icon scaling** - Changed from ignored `zoom` to working `scale_x`/`scale_y` (56 for 14px, 48 for 12px)
+2. **Filament weight data** - Added missing `filament_weight` attribute to card creation
+3. **Better icon choice** - Changed from `mat_spoolman` → `mat_layers` (stacked layers = quantity/amount metaphor)
+
+**Verification:**
+- ✅ Print panel: Clock & layers icons are **red** (primary_color)
+- ✅ Controls panel: All 6 card icons are **red** (primary_color)
+- ✅ Home panel: Network icon is **gray** (text_secondary)
+- ✅ Temperature panels: Heater/bed icons are **red** (primary_color)
+- ✅ Motion panel: Home & arrow icons are **white** (text_primary)
+
+**Impact:**
+- **XML recoloring now works everywhere** - No C++ recolor code needed
+- RGB565A8 format + XML attributes = dynamic icon colors
+- Consistent color theming across all UI panels
+- Fixes apply retroactively to all existing Material icons
+
+**Key Takeaways:**
+1. **LVGL 9 XML uses full words**: `image_recolor` not `img_recolor` - never abbreviate in XML attributes
+2. **No zoom attribute exists**: LVGL 9 uses `scale_x`/`scale_y` where 256 = 100% (not `zoom` like LVGL 8)
+3. **Silent failures are common**: XML parser silently ignores unknown attributes - always verify against source
+4. **Check parser source**: When XML attributes don't work, check `/lvgl/src/others/xml/` parser implementations
+5. **Valid lv_image attributes**: Only `src`, `inner_align`, `rotation`, `scale_x`, `scale_y`, `pivot` (from `/lvgl/src/others/xml/parsers/lv_xml_image_parser.c`)
+
+---
 
 ### Material Design Icon Migration ✅ COMPLETE
 
@@ -58,8 +343,8 @@ All 56 Material Design icons successfully converted and integrated:
 ```xml
 <lv_image src="mat_heater"
           align="center"
-          style_img_recolor="#primary_color"
-          style_img_recolor_opa="100%"/>
+          style_image_recolor="#primary_color"
+          style_image_recolor_opa="255"/>
 ```
 
 **Files Modified:**
@@ -94,7 +379,7 @@ All 56 Material Design icons successfully converted and integrated:
 | Motion - Z Arrows | icon_arrow_up/down (FA) | mat_arrow_up/down ✨ | 16px |
 | Temp Panels - Icons | icon_fire | mat_heater / mat_bed | 64px |
 | Print Cards - Time | icon_clock (FA) | mat_clock ✨ | 14px |
-| Print Cards - Filament | icon_leaf (FA) | mat_spoolman ✨ | 14px |
+| Print Cards - Filament | icon_leaf (FA) | mat_layers ✨ | 14px |
 | Keypad - Backspace | icon_backspace (FA) | mat_delete ✨ | 32px |
 | Headers - Back | icon_chevron_left (FA) | mat_back ✨ | 32px |
 

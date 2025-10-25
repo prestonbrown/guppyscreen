@@ -200,14 +200,16 @@ if (!ui_nav_go_back()) {
 
 ### Quick-Start & Patterns
 
-**[HANDOFF.md](HANDOFF.md)** - **QUICK-START FOR NEXT DEVELOPER**
-- Brief current state summary (2-3 paragraphs max)
+**[HANDOFF.md](HANDOFF.md)** - **ACTIVE WORK & NEXT PRIORITIES**
+- **ONLY contains:** Ongoing work, current problems, active bugs, pending tasks
+- What's being worked on RIGHT NOW (incomplete work)
+- What needs to be done NEXT (priorities)
 - Critical architecture patterns (how-to sections)
-- Next priorities (what to work on)
-- Known gotchas
-- **Update this:** When adding new critical patterns or changing priorities
-- **Do NOT put:** Historical session details, chronological updates (use STATUS.md)
-- **Rule:** If it's not actionable for the next developer, it doesn't belong here
+- Known gotchas that affect current work
+- **Update this:** When starting new work, completing tasks, or changing priorities
+- **Do NOT put:** Completed work (goes in STATUS.md), historical details
+- **Rule:** If it's finished/resolved, remove it from HANDOFF and document in STATUS.md
+- **Clean up:** Remove stale completed items every session - keep it current
 
 ### Technical Reference
 

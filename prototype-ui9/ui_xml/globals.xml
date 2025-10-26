@@ -29,6 +29,8 @@
 	<!-- Text colors -->
 	<color name="text_primary" value="0xffffff" />
 	<color name="text_secondary" value="0x909090" />
+	<color name="text_muted" value="0x606060" />
+	<color name="text_on_primary" value="0xffffff" />
 
 	<!-- Brand colors -->
 	<color name="primary_color" value="0xff4444" />
@@ -37,6 +39,8 @@
 	<!-- Green for confirm buttons -->
 	<color name="warning_color" value="0xff9800" />
 	<!-- Orange for warnings -->
+	<color name="button_secondary_bg" value="0x4a4a4a" />
+	<!-- Secondary button background -->
 
 	<!-- UI dimensions -->
 	<px name="nav_width" value="102" />
@@ -97,6 +101,12 @@
 	<!-- Icon buttons, back buttons -->
 	<px name="button_height_normal" value="56" />
 	<!-- Primary action buttons -->
+	<px name="button_row_height" value="90" />
+	<!-- Row height for button containers -->
+
+	<!-- Input field dimensions (text inputs, dropdowns, rollers) -->
+	<px name="input_border_width" value="3" />
+	<!-- Border width for input fields (prominent for visibility) -->
 
 	<!-- Card styling -->
 	<px name="card_radius_large" value="12" />

@@ -1,11 +1,45 @@
 # Session Handoff Document
 
-**Last Updated:** 2025-10-26 Late Evening
-**Current Focus:** Real Printer Connection Working - Ready for First-Run Wizard Implementation
+**Last Updated:** 2025-10-26 Very Late Evening
+**Current Focus:** Wizard UI Polish Complete - Ready for Backend Implementation
 
 ---
 
-## Recent Work (2025-10-26 Late Evening)
+## Recent Work (2025-10-26 Very Late Evening - Session 2)
+
+### Wizard Input Field Improvements + Design Token Cleanup ✅ COMPLETE
+
+**Fixed critical wizard UX bug and cleaned up design system.**
+
+**Bug Fixed:**
+- Wizard input fields were completely invisible due to LVGL flex layout bug
+- Root cause: `wizard_content` container with `flex_grow="1"` collapsed to zero height
+- Solution: Added `scrollable="true"` to force dimension calculation (wizard_container.xml:67)
+
+**Improvements Made:**
+1. Enhanced input field visibility:
+   - 3px white borders for definition
+   - Placeholder text ("192.168.1.100", "7125")
+   - Font size increased to montserrat_20
+   - Darker background (#card_bg_dark) for contrast
+
+2. Design token consolidation:
+   - Removed 4 duplicate constants from globals.xml
+   - Now reuse existing tokens: #header_height, #padding_card, #card_radius, "100%"
+   - Only kept #input_border_width (3px - unique value)
+   - Applied across all 6 wizard XML files
+
+**Files Modified:**
+- ui_xml/wizard_container.xml - Scrollable fix
+- ui_xml/wizard_connection.xml - Enhanced styling
+- ui_xml/globals.xml - Removed duplicates
+- ui_xml/wizard_*.xml (5 files) - Consolidated constants
+
+**Status:** All wizard screens now have consistent, visible input styling with minimal design token bloat.
+
+---
+
+## Earlier Work (2025-10-26 Late Evening - Session 1)
 
 ### Real Printer Connection Testing + First-Run Wizard Planning ✅ COMPLETE
 

@@ -1,8 +1,146 @@
 # Project Status - LVGL 9 UI Prototype
 
-**Last Updated:** 2025-10-26 (Real Printer Connection + First-Run Wizard Planning)
+**Last Updated:** 2025-10-26 (Wizard UI Improvements: Input Visibility + Constants Consolidation)
 
-## Recent Updates (2025-10-26 Late Evening)
+## Recent Updates (2025-10-26 Very Late Evening - Session 2)
+
+### Wizard Input Field Improvements + Constants Consolidation ✅ COMPLETE
+
+**Objective:** Make wizard input fields visible and obvious + consolidate duplicate design tokens
+
+**Problem:** User could not find IP address input field on wizard's first screen - fields were completely invisible due to LVGL flex layout bug causing zero-height container.
+
+**Implementation:**
+
+1. **Critical Fix - Container Scrollable** (`ui_xml/wizard_container.xml:66-67`):
+   - **Root Cause**: `wizard_content` container with `flex_grow="1"` calculated to zero height, clipping all children
+   - **Solution**: Added `scrollable="true"` to force proper dimension calculation
+   - Input fields now render correctly and are visible
+
+2. **Enhanced Input Visibility** (`ui_xml/wizard_connection.xml:56-95`):
+   - Added prominent 3px white borders (`style_border_width`, `style_border_color="#text_primary"`)
+   - Added placeholder text with dimmed color (`placeholder_text="192.168.1.100"`, `style_placeholder_text_color="#text_muted"`)
+   - Increased font size to montserrat_20 for better readability
+   - Darker background (`#card_bg_dark`) for contrast against panel
+   - Applied to both IP address and port input fields
+
+3. **Constants Consolidation** (`ui_xml/globals.xml:107-109`):
+   - **Removed 4 redundant constants** (from 5 → 1):
+     - ~~`input_field_height`~~ → reuse `#header_height` (60px)
+     - ~~`input_field_padding`~~ → reuse `#padding_card` (16px)
+     - ~~`input_field_radius`~~ → reuse `#card_radius` (8px)
+     - ~~`input_border_opa`~~ → use literal `"100%"` (255)
+   - **Kept**: `input_border_width` (3px - no existing equivalent)
+   - Reduces globals.xml bloat, improves maintainability
+
+4. **Applied Consolidation Across All Wizard Files**:
+   - Updated 6 wizard XML files with consolidated constants:
+     - `wizard_connection.xml` (2 textareas)
+     - `wizard_printer_identify.xml` (1 textarea, 1 roller)
+     - `wizard_bed_select.xml` (2 dropdowns)
+     - `wizard_hotend_select.xml` (2 dropdowns)
+     - `wizard_fan_select.xml` (2 dropdowns)
+     - `wizard_led_select.xml` (2 dropdowns)
+
+**User Feedback:**
+- Initial: "NON-OBVIOUS" → couldn't find input fields
+- After borders: "I still can't tell where to click/enter this"
+- After placeholder: "where am I supposed to enter the IP address?" (fields invisible)
+- After scrollable fix: ✅ Fields visible
+- After hardcoded values: "terrible for maintainability" → triggered constants consolidation
+- Final request: "do you really need new constants?" → consolidated with existing tokens
+
+**Files Modified:**
+- `ui_xml/wizard_container.xml` - Added `scrollable="true"` to fix zero-height bug
+- `ui_xml/wizard_connection.xml` - Enhanced input field styling with borders/placeholders
+- `ui_xml/globals.xml` - Removed 4 duplicate constants
+- `ui_xml/wizard_printer_identify.xml` - Replaced with consolidated constants
+- `ui_xml/wizard_bed_select.xml` - Replaced with consolidated constants
+- `ui_xml/wizard_hotend_select.xml` - Replaced with consolidated constants
+- `ui_xml/wizard_fan_select.xml` - Replaced with consolidated constants
+- `ui_xml/wizard_led_select.xml` - Replaced with consolidated constants
+
+**Key Learning:** LVGL 9 containers with `flex_grow="1"` in column layouts can collapse to zero height. Solution: add `scrollable="true"` to force dimension calculation, or use explicit height.
+
+## Earlier Updates (2025-10-26 Very Late Evening - Session 1)
+
+### Enhanced Printer Detection + Image Asset Collection ✅ COMPLETE
+
+**Objective:** Add K1 series and FlashForge detection to wizard, collect printer images for all auto-detected types
+
+**Implementation:**
+
+1. **Enhanced Printer Detection Documentation** (`docs/PRINTER_DETECTION.md`):
+   - Added comprehensive Creality K1/K1 Max/K1C detection patterns
+   - K1 series specific: Multi-MCU architecture (GD32F303RET6 nozzle, GD32E230F8P6 leveling)
+   - K1 series specific: Prtouch V2 auto-leveling with 4 pressure sensors
+   - K1 series specific: CoreXY kinematics with sensorless homing
+   - Added FlashForge Adventurer 5M/5M Pro detection patterns
+   - FlashForge specific: Allwinner T113-S3 processor, Klipper mod support
+   - Enhanced Voron V1 description to include "Legacy" designation
+   - Total: 33 printer types now supported with detailed detection heuristics
+
+2. **Updated Wizard Printer Dropdown** (`ui_xml/wizard_printer_identify.xml`):
+   - Added Creality K1 (index 13)
+   - Added Creality K1 Max (index 14)
+   - Added Creality K1C (index 15)
+   - Added FlashForge Adventurer 5M (index 30)
+   - Added FlashForge Adventurer 5M Pro (index 31)
+   - Updated from 28 to 33 total printer types in dropdown
+
+3. **Enhanced Detection Logic** (`src/ui_wizard.cpp:500-597`):
+   - K1 series detection prioritized BEFORE generic Ender detection to avoid conflicts
+   - Hostname-based detection: "k1", "k1max", "k1c"
+   - Multi-MCU detection for K1 series (nozzle_mcu + leveling_mcu pattern)
+   - FlashForge detection: "flashforge", "ad5m", "5mpro" patterns
+   - All dropdown indices shifted by +3 after Ender 5 to accommodate K1 series
+   - Confidence scoring system working correctly for new printer types
+
+4. **Printer Image Asset Collection** (`assets/images/printers/`):
+   - **Collected 12 printer images** successfully:
+     - Voron: V0, V2, Trident ✅
+     - Creality: K1 ✅
+     - FlashForge: AD5M, AD5M Pro ✅
+     - Anycubic: Kobra, Vyper, Chiron ✅
+     - Rat Rig: V-Core 3, V-Minion ✅
+     - FLSUN: Delta (all models) ✅
+   - All images standardized to 750×930px dimensions
+   - **Remaining 10 printers use generic Voron V2 fallback:**
+     - Voron V1/Legacy, Switchwire
+     - Ender 3, Ender 5, CR-10, CR-6 SE
+     - Prusa MK3, MK4, Mini, XL
+   - Created `assets/images/printers/README.md` documenting image inventory
+
+5. **Image Download Automation** (`scripts/download_printer_images_headless.py`):
+   - Python script using headless Brave/Chrome for image downloads
+   - Bypasses anti-hotlinking protection via browser rendering
+   - Automatic ImageMagick resizing to 750×930px with aspect ratio preservation
+   - Successfully processed 12 images (6 downloaded fresh from URLs, 6 pre-existing)
+
+**Results:**
+- ✅ K1 series fully supported in auto-detection (3 models)
+- ✅ FlashForge AD5M fully supported (2 models)
+- ✅ 33 total printer types in wizard dropdown
+- ✅ 12 printer-specific images ready for wizard display
+- ✅ Generic fallback works for remaining 10 printer types
+- ✅ Detection logic tested and verified with existing code
+- ✅ All dropdown indices correctly updated throughout wizard
+
+**Files Modified:**
+- `docs/PRINTER_DETECTION.md` - Enhanced detection heuristics
+- `ui_xml/wizard_printer_identify.xml` - Updated dropdown options
+- `src/ui_wizard.cpp` - K1/FlashForge detection logic + index updates
+- `assets/images/printers/README.md` - Image inventory documentation
+- `scripts/download_printer_images_headless.py` - Image download automation
+
+**Next Steps:**
+- Wizard XML integration to display printer images based on selection
+- End-to-end wizard testing with real Moonraker connection
+- Future: Collect remaining 10 printer images (Ender series, Prusa family, Voron variants)
+
+---
+
+## Previous Updates (2025-10-26 Late Evening)
 
 ### Real Printer Connection Testing + First-Run Wizard Planning ✅ COMPLETE
 

@@ -30,11 +30,11 @@ KWebSocketClient::~KWebSocketClient() {
 int KWebSocketClient::connect(const char* url,
 			      std::function<void()> connected,
 			      std::function<void()> disconnected) {
-  spdlog::debug("websocket connecting");
+  spdlog::debug("websocket connecting to {}", url);
   // set callbacks
-  onopen = [this, connected]() {
+  onopen = [this, connected, url]() {
     const HttpResponsePtr& resp = getHttpResponse();
-    spdlog::debug("onopen {}", resp->body.c_str());
+    spdlog::debug("websocket connected to {} - onopen {}", url, resp->body.c_str());
     connected();
   };
   onmessage = [this, connected, disconnected](const std::string &msg) {

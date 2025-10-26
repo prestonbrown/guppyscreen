@@ -1,8 +1,40 @@
 # Project Status - LVGL 9 UI Prototype
 
-**Last Updated:** 2025-10-25 (Temperature Graph Gradient Fix)
+**Last Updated:** 2025-10-25 (Temperature Panel Responsive Layout)
 
 ## Recent Updates (2025-10-25)
+
+### Temperature Panel Responsive Layout ✅ COMPLETE
+
+**Objective:** Make nozzle and bed temperature panels wider with better column proportions to match motion panel's responsive design
+
+**Changes:**
+
+1. **Panel Width** - Increased from 68% to 83% screen width:
+   - Changed from `#overlay_panel_width` (68%) to `#overlay_panel_width_large` (83%)
+   - Matches motion panel's wider layout
+   - Provides more horizontal space for temperature visualization and controls
+
+2. **Column Proportions** - Adjusted from 40%/60% to 66%/33%:
+   - Temperature graph: 66% width (increased from 40%)
+   - Controls column: 33% width (decreased from 60%)
+   - Emphasizes temperature visualization while keeping controls compact
+   - Better visual balance for temperature monitoring
+
+**Files Modified:**
+- `ui_xml/nozzle_temp_panel.xml` (lines 40, 53-54, 61-62)
+- `ui_xml/bed_temp_panel.xml` (lines 40, 53-54, 61-62)
+
+**Responsive Features Already Implemented:**
+- Header heights: 40px (tiny), 48px (small), 60px (medium/large) via `ui_component_header_bar_setup()`
+- Vertical padding: 6px (tiny), 10px (small), 20px (medium/large) via `ui_get_header_content_padding()`
+- No C++ changes required - responsive infrastructure already in place
+
+**Result:** Temperature panels now have consistent wide layout (83%) with motion panel, prominent temperature graph visualization (2/3 width), and compact controls (1/3 width).
+
+---
+
+## Earlier Updates (2025-10-25)
 
 ### Temperature Graph Gradient Rendering Fix ✅ COMPLETE
 

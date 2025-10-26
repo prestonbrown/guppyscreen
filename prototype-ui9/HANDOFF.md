@@ -1,11 +1,25 @@
 # Session Handoff Document
 
 **Last Updated:** 2025-10-25
-**Current Focus:** ✅ **Temperature Graph Gradient Fix Complete - Production Ready**
+**Current Focus:** ✅ **Temperature Panel Responsive Layout Complete**
 
 ---
 
 ## What Was Just Accomplished (2025-10-25 Latest Session)
+
+### Temperature Panel Responsive Layout ✅ COMPLETE
+- **Objective:** Widen temperature panels and improve column proportions to match motion panel
+- **Changes:**
+  - Panel width: 68% → 83% (using `#overlay_panel_width_large`)
+  - Column split: 40%/60% → 66%/33% (graph/controls)
+  - Temperature graph now prominently displayed at 2/3 width
+  - Controls column compact at 1/3 width
+- **Files:** `ui_xml/nozzle_temp_panel.xml`, `ui_xml/bed_temp_panel.xml` (4 line changes each)
+- **Result:** Consistent wide layout across all overlay panels (motion, nozzle-temp, bed-temp)
+
+---
+
+## Previous Session (2025-10-25 Earlier)
 
 ### Temperature Graph Gradient Rendering Fix ✅ COMPLETE
 - **Objective:** Fix gradient fills to only render under the actual temperature curve, not the entire chart height

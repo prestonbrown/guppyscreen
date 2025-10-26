@@ -1,41 +1,43 @@
 # Session Handoff Document
 
 **Last Updated:** 2025-10-26
-**Current Focus:** Ready for Moonraker integration
+**Current Focus:** Moonraker integration foundation complete - ready to implement WebSocket connection logic
 
 ---
 
 ## Recent Work (2025-10-26)
 
-### Home Panel Print Card Navigation ✅ COMPLETE
-- Clicking Print Files card navigates to print select panel
-- Converted card from `<lv_obj>` to `<lv_button>` with click handler
-- Calls `ui_nav_set_active(UI_PANEL_PRINT_SELECT)`
-- Files: `ui_xml/home_panel.xml`, `src/ui_panel_home.cpp`
+### Moonraker Integration Foundation ✅ COMPLETE
+- Integrated libhv WebSocket library (static linking via parent repo)
+- Created `MoonrakerClient` wrapper class with JSON-RPC support
+- Created `PrinterState` reactive state manager with LVGL subjects
+- Cross-platform build system (macOS/Linux-aware NPROC + linker flags)
+- Increased `LV_DRAW_THREAD_STACK_SIZE` to 32KB (eliminates warning)
+- Files: `include/moonraker_client.h`, `src/moonraker_client.cpp`, `include/printer_state.h`, `src/printer_state.cpp`, `Makefile`, `lv_conf.h`
 
 ---
 
 ## Project Status
 
-**All UI components complete and functional with mock data.**
+**All UI components complete. Infrastructure ready for Moonraker integration.**
 
-Navigation system robust with history stack. All panels render correctly across all screen sizes (480×320 to 1280×720). Responsive design patterns established.
+Navigation system robust. All panels render correctly across all screen sizes. Reactive state management infrastructure in place with LVGL subjects.
 
 ### What Works
 - ✅ Navigation system with history stack
-- ✅ Home panel with clickable Print Files card
-- ✅ Controls launcher → sub-screens (motion, temps, extrusion)
-- ✅ Print select panel (card/list views, sorting, file detail view)
-- ✅ Print status panel with mock print simulation
-- ✅ Temperature graphs with gradient fills
-- ✅ Motion panel with 8-direction jog pad
-- ✅ Responsive design across all screen sizes
+- ✅ All UI panels functional with mock data
+- ✅ Responsive design (480×320 to 1280×720)
 - ✅ Material Design icons with dynamic recoloring
+- ✅ **MoonrakerClient** - WebSocket client wrapper (libhv)
+- ✅ **PrinterState** - Reactive state manager with subjects
+- ✅ **Cross-platform build** - macOS/Linux-aware Makefile
 
-### What Needs Work
-- 🔌 **Moonraker integration** - Replace mock data with live printer state
-- 🔌 **Wire button actions** - Connect UI controls to Klipper commands
-- 🔌 **Real-time updates** - Subscribe to printer status changes
+### Next Steps
+- 🔌 **Implement connection logic in main.cpp** - Create MoonrakerClient, connect to ws://localhost:7125/websocket
+- 🔌 **Subscribe to printer objects** - Use printer.objects.subscribe for temps, motion, print_stats
+- 🔌 **Wire PrinterState updates** - Connect notifications to `update_from_notification()`
+- 🔌 **Bind UI to real subjects** - Replace mock data with printer_state subjects in XML
+- 🔌 **Implement control actions** - Wire buttons to gcode_script() calls
 
 ---
 

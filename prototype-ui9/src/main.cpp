@@ -37,10 +37,13 @@
 #include "ui_component_keypad.h"
 #include "ui_component_header_bar.h"
 #include "ui_icon.h"
+#include "printer_state.h"
+#include "moonraker_client.h"
 #include <SDL.h>
 #include <cstdio>
 #include <cstring>
 #include <ctime>
+#include <cmath>
 
 // LVGL display and input
 static lv_display_t* display = nullptr;
@@ -49,6 +52,9 @@ static lv_indev_t* indev_mouse = nullptr;
 // Screen dimensions (configurable via command line, default to medium size)
 static int SCREEN_WIDTH = UI_SCREEN_MEDIUM_W;
 static int SCREEN_HEIGHT = UI_SCREEN_MEDIUM_H;
+
+// Printer state management
+static PrinterState printer_state;
 
 // Initialize LVGL with SDL
 static bool init_lvgl() {
@@ -142,6 +148,55 @@ static void save_screenshot() {
 
     // Free snapshot buffer
     lv_draw_buf_destroy(snapshot);
+}
+
+// Mock data generator (simulates printer state changes for testing)
+static void update_mock_printer_data() {
+    static uint32_t tick_count = 0;
+    tick_count++;
+
+    // Simulate temperature ramping (0-210°C over 30 seconds for nozzle, 0-60°C for bed)
+    int nozzle_current = static_cast<int>(std::min(210.0, (tick_count / 30.0) * 210.0));
+    int bed_current = static_cast<int>(std::min(60.0, (tick_count / 60.0) * 60.0));
+
+    lv_subject_set_int(printer_state.get_extruder_temp_subject(), nozzle_current);
+    lv_subject_set_int(printer_state.get_extruder_target_subject(), 210);
+    lv_subject_set_int(printer_state.get_bed_temp_subject(), bed_current);
+    lv_subject_set_int(printer_state.get_bed_target_subject(), 60);
+
+    // Simulate print progress (0-100% over 2 minutes)
+    int progress = static_cast<int>(std::min(100.0, (tick_count / 120.0) * 100.0));
+    lv_subject_set_int(printer_state.get_print_progress_subject(), progress);
+
+    // Update print state based on progress
+    const char* state = "standby";
+    if (progress > 0 && progress < 100) {
+        state = "printing";
+    } else if (progress >= 100) {
+        state = "complete";
+    }
+    lv_subject_copy_string(printer_state.get_print_state_subject(), state);
+
+    // Simulate jog position (slowly increasing)
+    int x = 100 + (tick_count % 50);
+    int y = 100 + ((tick_count / 2) % 50);
+    int z = 10 + ((tick_count / 10) % 20);
+    lv_subject_set_int(printer_state.get_position_x_subject(), x);
+    lv_subject_set_int(printer_state.get_position_y_subject(), y);
+    lv_subject_set_int(printer_state.get_position_z_subject(), z);
+
+    // Simulate speed/flow (oscillate between 90-110%)
+    int speed = 100 + static_cast<int>(10.0 * std::sin(tick_count / 10.0));
+    int flow = 100 + static_cast<int>(5.0 * std::cos(tick_count / 15.0));
+    int fan = static_cast<int>(std::min(100.0, (tick_count / 20.0) * 100.0));
+    lv_subject_set_int(printer_state.get_speed_factor_subject(), speed);
+    lv_subject_set_int(printer_state.get_flow_factor_subject(), flow);
+    lv_subject_set_int(printer_state.get_fan_speed_subject(), fan);
+
+    // Connection state (simulates connecting → connected after 3 seconds)
+    if (tick_count == 3) {
+        printer_state.set_connection_state(2, "Connected");
+    }
 }
 
 // Main application
@@ -362,6 +417,7 @@ int main(int argc, char** argv) {
     ui_panel_controls_extrusion_init_subjects();  // Extrusion sub-screen
     ui_panel_filament_init_subjects();  // Filament panel
     ui_panel_print_status_init_subjects();  // Print status screen
+    printer_state.init_subjects();  // Printer state subjects (CRITICAL: must be before XML creation)
 
     // Create entire UI from XML (single component contains everything)
     lv_obj_t* app_layout = (lv_obj_t*)lv_xml_create(screen, "app_layout", NULL);
@@ -569,12 +625,19 @@ int main(int argc, char** argv) {
         printf("File detail view displayed\n");
     }
 
+    // Set initial connection state (mock mode: disconnected)
+    printer_state.set_connection_state(0, "Disconnected");
+    LV_LOG_USER("Printer state initialized in mock mode");
+
     // Auto-screenshot timer (2 seconds after UI creation)
     uint32_t screenshot_time = SDL_GetTicks() + 2000;
     bool screenshot_taken = false;
 
     // Mock print simulation timer (tick every second)
     uint32_t last_tick_time = SDL_GetTicks();
+
+    // Mock printer data timer (tick every second)
+    uint32_t last_mock_data_time = SDL_GetTicks();
 
     // Main event loop - Let LVGL handle SDL events internally via lv_timer_handler()
     // Loop continues while display exists (exits when window closed)
@@ -598,6 +661,12 @@ int main(int argc, char** argv) {
         if (current_time - last_tick_time >= 1000) {
             ui_panel_print_status_tick_mock_print();
             last_tick_time = current_time;
+        }
+
+        // Tick mock printer data (once per second)
+        if (current_time - last_mock_data_time >= 1000) {
+            update_mock_printer_data();
+            last_mock_data_time = current_time;
         }
 
         // Run LVGL tasks - internally polls SDL events and processes input

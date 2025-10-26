@@ -1,8 +1,47 @@
 # Project Status - LVGL 9 UI Prototype
 
-**Last Updated:** 2025-10-26 (Home Panel Print Card Navigation)
+**Last Updated:** 2025-10-26 (Moonraker Integration Foundation)
 
 ## Recent Updates (2025-10-26)
+
+### Moonraker Integration Foundation ✅ COMPLETE
+
+**Objective:** Integrate libhv WebSocket library and create printer state management infrastructure for future Moonraker connectivity
+
+**Implementation:**
+
+1. **libhv Integration** (`Makefile:47-72`):
+   - Created symlinks: `libhv -> ../libhv` and `spdlog -> ../spdlog` (reuse parent repo submodules)
+   - Built libhv in parent repo with `./configure --with-http-client` and `make libhv`
+   - Static linking: `LIBHV_LIB := $(LIBHV_DIR)/lib/libhv.a`
+   - Include paths: `-I$(LIBHV_DIR)/include -I$(LIBHV_DIR)/cpputil`
+   - Platform-specific linker flags:
+     - macOS: `-framework CoreFoundation -framework Security` (Apple SSL)
+     - Linux: Standard pthread/math libraries (OpenSSL)
+   - Platform-aware parallelization: `sysctl -n hw.ncpu` (macOS) / `nproc` (Linux)
+
+2. **Created Infrastructure Files**:
+   - `include/moonraker_client.h` / `src/moonraker_client.cpp` - WebSocket client wrapper for libhv
+   - `include/printer_state.h` / `src/printer_state.cpp` - Reactive printer state manager with LVGL subjects
+   - Both files include proper GPL v3 copyright headers
+
+3. **Printer State Architecture**:
+   - Hybrid approach: LVGL subjects for UI-bound data + JSON cache for complex queries
+   - Thread-safe state updates with mutex protection
+   - Subjects for temps, print progress, motion, speed/flow, connection status
+   - All subjects registered with LVGL XML system for declarative binding
+
+4. **Build System Enhancements** (`Makefile:59-72`, `lv_conf.h:134`):
+   - Cross-platform detection with `UNAME_S := $(shell uname -s)`
+   - macOS/Linux-specific NPROC and LDFLAGS variables
+   - Increased `LV_DRAW_THREAD_STACK_SIZE` from 8KB to 32KB (eliminates ThorVG warning)
+   - Added `libhv-build` target documenting proper build process for future
+
+**Result:** Build system now fully cross-platform aware. Prototype has all dependencies and infrastructure needed for Moonraker WebSocket integration. Next step: implement actual connection logic in main.cpp.
+
+---
+
+## Earlier Updates (2025-10-26)
 
 ### Home Panel Print Card Navigation ✅ COMPLETE
 

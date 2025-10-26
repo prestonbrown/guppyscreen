@@ -44,21 +44,38 @@ MATERIAL_ICON_OBJS := $(patsubst %.c,$(OBJ_DIR)/%.o,$(MATERIAL_ICON_SRCS))
 SDL2_CFLAGS := $(shell sdl2-config --cflags)
 SDL2_LIBS := $(shell sdl2-config --libs)
 
-# Include paths
-INCLUDES := -I. -I$(INC_DIR) $(LVGL_INC) $(SDL2_CFLAGS)
+# libhv (WebSocket client for Moonraker) - symlinked from parent repo submodule
+LIBHV_DIR := libhv
+LIBHV_INC := -I$(LIBHV_DIR)/include -I$(LIBHV_DIR)/cpputil
+LIBHV_LIB := $(LIBHV_DIR)/lib/libhv.a
 
-# Linker flags
-LDFLAGS := $(SDL2_LIBS) -lm -lpthread
+# spdlog (logging library) - symlinked from parent repo submodule
+SPDLOG_DIR := spdlog
+SPDLOG_INC := -I$(SPDLOG_DIR)/include
+
+# Include paths
+INCLUDES := -I. -I$(INC_DIR) $(LVGL_INC) $(LIBHV_INC) $(SPDLOG_INC) $(SDL2_CFLAGS)
+
+# Platform detection and configuration
+UNAME_S := $(shell uname -s)
+ifeq ($(UNAME_S),Darwin)
+    # macOS
+    NPROC := $(shell sysctl -n hw.ncpu 2>/dev/null || echo 4)
+    LDFLAGS := $(SDL2_LIBS) $(LIBHV_LIB) -lm -lpthread -framework CoreFoundation -framework Security
+else
+    # Linux
+    NPROC := $(shell nproc 2>/dev/null || echo 4)
+    LDFLAGS := $(SDL2_LIBS) $(LIBHV_LIB) -lm -lpthread
+endif
+
+# Enable parallel builds automatically
+MAKEFLAGS += -j$(NPROC)
 
 # Binary
 TARGET := $(BIN_DIR)/helix-ui-proto
 
 # LVGL configuration
 LV_CONF := -DLV_CONF_INCLUDE_SIMPLE
-
-# Parallel build (auto-detect CPU cores and enable by default)
-NPROC := $(shell sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
-MAKEFLAGS += -j$(NPROC)
 
 # Test configuration
 TEST_DIR := tests
@@ -68,7 +85,7 @@ TEST_BIN := $(BIN_DIR)/run_tests
 TEST_SRCS := $(wildcard $(TEST_UNIT_DIR)/*.cpp)
 TEST_OBJS := $(patsubst $(TEST_UNIT_DIR)/%.cpp,$(OBJ_DIR)/tests/%.o,$(TEST_SRCS))
 
-.PHONY: all clean run test test-cards test-print-select demo compile_commands
+.PHONY: all clean run test test-cards test-print-select demo compile_commands libhv-build
 
 all: $(TARGET)
 
@@ -216,4 +233,12 @@ compile_commands:
 	@echo "✓ compile_commands.json generated"
 	@echo ""
 	@echo "IDE/LSP integration ready. Restart your editor to pick up changes."
+
+# Build libhv (configure + compile)
+# NOTE: This will be used when libhv is not a symlink but a real submodule
+libhv-build:
+	@echo "Building libhv..."
+	@cd $(LIBHV_DIR) && ./configure --with-http-client
+	@$(MAKE) -C $(LIBHV_DIR) -j$(NPROC) libhv
+	@echo "✓ libhv built successfully"
 

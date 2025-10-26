@@ -510,9 +510,6 @@ int main(int argc, char** argv) {
     // Register app_layout with navigation system (to prevent hiding it)
     ui_nav_set_app_layout(app_layout);
 
-    // Initialize global keyboard (for textareas throughout the app)
-    ui_keyboard_init(screen);
-
     // Find navbar and panel widgets
     // app_layout > navbar (child 0), content_area (child 1)
     lv_obj_t* navbar = lv_obj_get_child(app_layout, 0);
@@ -735,6 +732,10 @@ int main(int argc, char** argv) {
     LV_LOG_USER("Initializing Moonraker client...");
     MoonrakerClient moonraker_client;
 
+    // Initialize global keyboard BEFORE wizard (required for textarea registration)
+    // NOTE: Keyboard is created early but will appear on top due to being moved to top layer below
+    ui_keyboard_init(screen);
+
     // Check if first-run wizard is required (skip for special test panels and explicit panel requests)
     if ((force_wizard || config->is_wizard_required()) && !show_step_test && !show_keypad && !panel_requested) {
         LV_LOG_USER("Starting first-run configuration wizard");
@@ -746,6 +747,13 @@ int main(int argc, char** argv) {
 
         if (wizard) {
             LV_LOG_USER("Wizard created successfully");
+
+            // Move keyboard to top layer so it appears above the full-screen wizard overlay
+            lv_obj_t* keyboard = ui_keyboard_get_instance();
+            if (keyboard) {
+                lv_obj_move_foreground(keyboard);
+                spdlog::debug("[Keyboard] Moved to foreground (above wizard overlay)");
+            }
         } else {
             LV_LOG_ERROR("Failed to create wizard");
         }

@@ -562,7 +562,7 @@ New users need a guided setup wizard to:
 - ✅ Empty state message ("No files available for printing")
 - ✅ Reusable confirmation dialog component (confirmation_dialog.xml)
 - ✅ Utility functions: format_file_size(), format_modified_date()
-- ✅ Updated all documentation (requirements v2.0, HANDOFF.md, STATUS.md)
+- ✅ Updated all documentation (requirements v2.0, HANDOFF.md)
 - ✅ Added ICON_LIST and ICON_TH_LARGE to icon system
 
 **Phase 3 Completion:**

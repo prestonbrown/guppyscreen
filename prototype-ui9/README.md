@@ -311,25 +311,12 @@ Key settings in `lv_conf.h`:
 - **[Quick Reference](docs/QUICK_REFERENCE.md)** - Common patterns and code snippets
 - **[CLAUDE.md](CLAUDE.md)** - Project context for AI assistants
 - **[HANDOFF.md](HANDOFF.md)** - Current work status and priorities
-- **[STATUS.md](STATUS.md)** - Development history and changelog
+- **[STATUS.md](STATUS.md)** - Documentation guide and architectural decisions
+- **[ROADMAP.md](docs/ROADMAP.md)** - Planned features and milestones
 
-## Current Status
+## Project Status
 
-**Completed:**
-- ✅ XML-based declarative UI system
-- ✅ Reactive Subject-Observer data binding
-- ✅ Navigation with back button support and history stack
-- ✅ All major panels implemented (home, controls, motion, temps, extrusion, print select)
-- ✅ Hybrid icon system (FontAwesome + PNG)
-- ✅ Global theme system
-- ✅ Multi-screen responsive layouts (tiny, small, large)
-- ✅ Platform-independent screenshots
-
-**Next:**
-- [ ] Integrate Klipper/Moonraker WebSocket backend
-- [ ] Theme variants (light mode)
-- [ ] Animations and transitions
-- [ ] Production framebuffer deployment
+See **[HANDOFF.md](HANDOFF.md)** for current work status and next priorities.
 
 ## Notes & Gotchas
 

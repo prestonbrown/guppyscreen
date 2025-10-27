@@ -312,7 +312,7 @@ if (!ui_nav_go_back()) {
 
    **Why:** LVGL 9 XML property system auto-generates simplified attribute names from enum values. The C enum is `LV_PROPERTY_OBJ_FLAG_HIDDEN` but the XML attribute is just `hidden`. Parser silently ignores attributes with `flag_` prefix.
 
-   **Status:** ✅ **FIXED** (2025-10-24) - All 12 XML files updated, 80+ incorrect usages corrected. See **STATUS.md** for details.
+   **Status:** ✅ **FIXED** (2025-10-24) - All 12 XML files updated, 80+ incorrect usages corrected.
 
 2. **Subject registration conflict** - If `globals.xml` declares subjects, they're registered with empty values before C++ initialization. Solution: Remove `<subjects>` from globals.xml.
 
@@ -330,23 +330,7 @@ if (!ui_nav_go_back()) {
 
 **IMPORTANT:** Each documentation file has a specific purpose. Do NOT duplicate content across files.
 
-### Development History & Planning
-
-**[STATUS.md](STATUS.md)** - **COMPREHENSIVE DEVELOPMENT JOURNAL**
-- Chronological history of all development work (newest first)
-- What was accomplished each session
-- Bugs fixed, features added, decisions made
-- **Update this:** After every significant change or session
-- **Do NOT duplicate:** Anywhere else - this is the single source of truth for "what happened"
-
-**[ROADMAP.md](docs/ROADMAP.md)** - **PLANNED FEATURES & MILESTONES**
-- Future work, planned phases
-- Feature prioritization
-- Long-term architecture goals
-- **Update this:** When planning new features or completing major milestones
-- **Do NOT update:** With completed work details (that goes in STATUS.md)
-
-### Quick-Start & Patterns
+### Active Work & Planning
 
 **[HANDOFF.md](HANDOFF.md)** - **ACTIVE WORK & ESSENTIAL PATTERNS ONLY**
 - **MAXIMUM SIZE:** ~150 lines. If larger, it needs aggressive pruning.
@@ -354,9 +338,20 @@ if (!ui_nav_go_back()) {
 - **Section 2:** Critical architecture patterns (how-to reference, ~7-8 patterns max)
 - **Section 3:** Known issues/gotchas that affect current work (2-4 items max)
 - **Update this:** When starting new work, completing tasks, or changing priorities
-- **CRITICAL RULE:** When work is COMPLETE, DELETE it from HANDOFF immediately and document in STATUS.md
+- **CRITICAL RULE:** When work is COMPLETE, DELETE it from HANDOFF immediately
 - **Do NOT put:** Historical details, completed work descriptions, implementation details
 - **Keep lean:** If a session added >50 lines to HANDOFF, you did it wrong - prune aggressively
+
+**[ROADMAP.md](docs/ROADMAP.md)** - **PLANNED FEATURES & MILESTONES**
+- Future work, planned phases
+- Feature prioritization
+- Long-term architecture goals
+- **Update this:** When planning new features or completing major milestones
+
+**[STATUS.md](STATUS.md)** - **DOCUMENTATION GUIDE & KEY DECISIONS**
+- Links to all documentation
+- Major architectural decisions with rationale
+- **NOT a development journal** - use git history for that
 
 ### Technical Reference
 
@@ -439,17 +434,10 @@ This project has specialized agents - use them proactively to keep context small
 
 1. Edit XML for layout changes (no recompilation needed)
 2. Edit C++ for logic/subjects changes → `make`
-3. Test with `./build/bin/helix-ui-proto [panel_name]`
+3. Test with `./build/bin/helix-ui-proto [panel_name]` (default size: `small`)
 4. Screenshot with `./scripts/screenshot.sh` or press 'S' in UI
 5. For complex multi-step tasks → use appropriate agent (see above)
 
-## Project Status
-
-**Current state:** Navigation history stack complete. All UI panels functional with mock data. Ready for interactive testing and Moonraker integration.
-
-**Recent:** Navigation history (2025-10-25), Print status panel (2025-10-24), Print select/detail views with thumbnail scaling (2025-10-24)
-
-**For development history:** See STATUS.md (chronological accomplishments)
-**For planned work:** See docs/ROADMAP.md (future features/milestones)
-**For handoff:** See HANDOFF.md (current focus and next priorities)
-- our default size for the prototype should be "small".
+**For current work status:** See HANDOFF.md
+**For planned features:** See docs/ROADMAP.md
+**For development history:** Use `git log`

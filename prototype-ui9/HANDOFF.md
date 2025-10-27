@@ -1,13 +1,13 @@
 # Session Handoff Document
 
-**Last Updated:** 2025-10-26 Evening
-**Current Focus:** Testing infrastructure established, wizard connection bugs fixed
+**Last Updated:** 2025-10-26 Late Evening
+**Current Focus:** Wizard testing complete, integration tests and mocking in progress
 
 ---
 
 ## 🎯 Active Work & Next Priorities
 
-**Status:** Testing framework complete with Catch2 v3, wizard connection refactored with reactive subjects and input validation
+**Status:** Wizard interactive testing complete, old tests migrated to Catch2 v3
 
 **Completed This Session:**
 - ✅ Fixed wizard connection bugs (timeout, config update, websocket warning)
@@ -15,29 +15,16 @@
 - ✅ Added comprehensive input validation (IP/hostname, port) with clear error messages
 - ✅ Established testing infrastructure with Catch2 v3 (47 passing tests)
 - ✅ Extracted validation logic to testable modules (`wizard_validation.h/.cpp`)
-- ✅ Created test framework documentation in STATUS.md
+- ✅ Tested wizard interactively - input validation, connection flow, config save working
+- ✅ Migrated old tests to Catch2 v3 (navigation system, temperature graph widget)
+- ✅ Archived STATUS.md (4,306 lines → docs/archive/), replaced with lean documentation guide
 
-**Next Steps (Priority Order):**
-1. **Test wizard interactively:** `./build/bin/helix-ui-proto --wizard -s small`
-   - Verify input validation (bad IP, invalid port, timeout)
-   - **Fix Next button crash** (currently crashes, needs investigation)
-   - Test successful connection flow and config save
+**In Progress (Elsewhere):**
+- 🔄 Integration tests for wizard flow (step progression, button simulation, state transitions)
+- 🔄 MoonrakerClient mocking for connection tests (success, failure, timeout scenarios)
 
-2. **Write integration tests** for wizard flow:
-   - Full wizard step progression
-   - Button click simulation with `lv_event_send()`
-   - State transition verification
-
-3. **MoonrakerClient mocking** for connection tests:
-   - Mock successful connection
-   - Mock failed connection
-   - Mock timeout scenarios
-
-4. **Migrate old tests** to Catch2 v3:
-   - `tests/unit/test_navigation.cpp` (navigation system)
-   - `tests/unit/test_temp_graph.cpp` (temperature graph widget)
-
-5. **Future wizard work:**
+**Next Steps:**
+1. **Future wizard work:**
    - Hardware detection/mapping screens
    - Moonraker WebSocket integration for live printer communication
 
@@ -192,23 +179,12 @@ make test-wizard              # Run all unit tests
 - Keep logic separate from UI code (enables pure unit tests)
 - Use descriptive test names and tags
 - `REQUIRE()` for critical checks, `CHECK()` for non-fatal
-- See STATUS.md for complete test framework documentation
 
-**Files:** `tests/unit/test_wizard_validation.cpp`, `Makefile:350-384`, `STATUS.md:89-150`
+**Files:** `tests/unit/test_wizard_validation.cpp`, `Makefile:350-384`
 
 ---
 
 ## 🔧 Known Issues & Gotchas
-
-### Wizard Next Button Crash ⚠️ ACTIVE BUG
-
-**Problem:** Clicking "Next" button in wizard connection screen crashes the UI
-
-**Status:** Needs investigation - likely accessing null widgets in next step
-
-**Priority:** High - blocks wizard testing
-
-**Next session:** Debug with `--wizard -s small`, add error handling for missing widgets
 
 ### LVGL 9 XML Flag Syntax ✅ FIXED
 
@@ -228,4 +204,4 @@ Icon values appear empty in grep/terminal (FontAwesome uses Unicode Private Use 
 
 ---
 
-**Rule:** When work is complete, REMOVE it from HANDOFF and document in STATUS.md. Keep this document lean and current.
+**Rule:** When work is complete, REMOVE it from HANDOFF immediately. Keep this document lean and current.

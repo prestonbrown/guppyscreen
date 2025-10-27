@@ -20,6 +20,9 @@ protected:
   json data;
   std::string default_printer;
 
+  // Allow test fixture to access protected members
+  friend class ConfigTestFixture;
+
 public:
   Config();
   Config(Config &o) = delete;
@@ -31,6 +34,14 @@ public:
   // Template get/set with JSON pointer syntax
   template<typename T> T get(const std::string &json_ptr) {
     return data[json::json_pointer(json_ptr)].template get<T>();
+  };
+
+  template<typename T> T get(const std::string &json_ptr, const T& default_value) {
+    json::json_pointer ptr(json_ptr);
+    if (data.contains(ptr)) {
+      return data[ptr].template get<T>();
+    }
+    return default_value;
   };
 
   template<typename T> T set(const std::string &json_ptr, T v) {

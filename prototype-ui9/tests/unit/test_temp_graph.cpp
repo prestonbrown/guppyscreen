@@ -18,7 +18,7 @@
  * along with HelixScreen. If not, see <https://www.gnu.org/licenses/>.
  */
 
-#include "../framework/catch.hpp"
+#include "../catch_amalgamated.hpp"
 #include "../../include/ui_temp_graph.h"
 #include "../../include/ui_theme.h"
 #include "lvgl/lvgl.h"

@@ -122,13 +122,26 @@ LV_CONF := -DLV_CONF_INCLUDE_SIMPLE
 # Test configuration
 TEST_DIR := tests
 TEST_UNIT_DIR := $(TEST_DIR)/unit
+TEST_MOCK_DIR := $(TEST_DIR)/mocks
 TEST_BIN := $(BIN_DIR)/run_tests
-TEST_SRCS := $(wildcard $(TEST_UNIT_DIR)/*.cpp)
+TEST_INTEGRATION_BIN := $(BIN_DIR)/run_integration_tests
+
+# Unit tests (use real LVGL) - exclude mock example
+TEST_SRCS := $(filter-out $(TEST_UNIT_DIR)/test_mock_example.cpp,$(wildcard $(TEST_UNIT_DIR)/*.cpp))
 TEST_OBJS := $(patsubst $(TEST_UNIT_DIR)/%.cpp,$(OBJ_DIR)/tests/%.o,$(TEST_SRCS))
+
+# Integration tests (use mocks instead of real LVGL)
+TEST_INTEGRATION_SRCS := $(TEST_UNIT_DIR)/test_mock_example.cpp
+TEST_INTEGRATION_OBJS := $(patsubst $(TEST_UNIT_DIR)/%.cpp,$(OBJ_DIR)/tests/%.o,$(TEST_INTEGRATION_SRCS))
+
 TEST_MAIN_OBJ := $(OBJ_DIR)/tests/test_main.o
 CATCH2_OBJ := $(OBJ_DIR)/tests/catch_amalgamated.o
 
-.PHONY: all clean run test test-cards test-print-select demo compile_commands libhv-build apply-patches help check-deps
+# Mock objects for integration testing
+MOCK_SRCS := $(wildcard $(TEST_MOCK_DIR)/*.cpp)
+MOCK_OBJS := $(patsubst $(TEST_MOCK_DIR)/%.cpp,$(OBJ_DIR)/tests/mocks/%.o,$(MOCK_SRCS))
+
+.PHONY: all clean run test test-integration test-cards test-print-select demo compile_commands libhv-build apply-patches help check-deps
 
 # Default target
 .DEFAULT_GOAL := all
@@ -145,6 +158,7 @@ help:
 	@echo ""
 	@echo "$(CYAN)Test Targets:$(RESET)"
 	@echo "  $(GREEN)test$(RESET)             - Run unit tests"
+	@echo "  $(GREEN)test-integration$(RESET) - Run integration tests (with mocks)"
 	@echo "  $(GREEN)test-cards$(RESET)       - Test dynamic card instantiation"
 	@echo "  $(GREEN)test-print-select$(RESET) - Test print select panel"
 	@echo ""
@@ -347,29 +361,8 @@ $(OBJ_DIR)/lvgl/demos/%.o: $(LVGL_DIR)/demos/%.c
 	$(ECHO) "$(CYAN)[DEMO]$(RESET) $<"
 	$(Q)$(CC) -c $< -o $@ $(LVGL_INC) $(CFLAGS)
 
-# Test targets
-# New Catch2 v3 tests (wizard validation only for now)
-TEST_WIZARD_BIN := $(BIN_DIR)/test_wizard_validation
-TEST_WIZARD_OBJ := $(OBJ_DIR)/tests/test_wizard_validation.o
-
-test-wizard: $(TEST_WIZARD_BIN)
-	$(ECHO) "$(CYAN)$(BOLD)Running wizard validation tests...$(RESET)"
-	$(Q)$(TEST_WIZARD_BIN) || { \
-		echo "$(RED)$(BOLD)✗ Tests failed!$(RESET)"; \
-		exit 1; \
-	}
-	$(ECHO) "$(GREEN)$(BOLD)✓ All tests passed!$(RESET)"
-
-$(TEST_WIZARD_BIN): $(TEST_MAIN_OBJ) $(CATCH2_OBJ) $(TEST_WIZARD_OBJ) $(OBJ_DIR)/wizard_validation.o
-	$(Q)mkdir -p $(BIN_DIR)
-	$(ECHO) "$(MAGENTA)$(BOLD)[LD]$(RESET) test_wizard_validation"
-	$(Q)$(CXX) $(CXXFLAGS) $^ -o $@ || { \
-		echo "$(RED)$(BOLD)✗ Test linking failed!$(RESET)"; \
-		exit 1; \
-	}
-	$(ECHO) "$(GREEN)✓ Test binary ready$(RESET)"
-
-# Old test framework (to be migrated later)
+# Test targets (Catch2 v3)
+# Unified test binary with all unit tests
 test: $(TEST_BIN)
 	$(ECHO) "$(CYAN)$(BOLD)Running unit tests...$(RESET)"
 	$(Q)$(TEST_BIN) || { \
@@ -378,14 +371,45 @@ test: $(TEST_BIN)
 	}
 	$(ECHO) "$(GREEN)$(BOLD)✓ All tests passed!$(RESET)"
 
-$(TEST_BIN): $(TEST_MAIN_OBJ) $(CATCH2_OBJ) $(TEST_OBJS) $(OBJ_DIR)/wizard_validation.o $(LVGL_OBJS) $(THORVG_OBJS) $(OBJ_DIR)/ui_nav.o $(OBJ_DIR)/ui_temp_graph.o
+# Backwards compatibility alias
+test-wizard: test
+
+# Run only config tests
+test-config: $(TEST_BIN)
+	$(ECHO) "$(CYAN)$(BOLD)Running config tests...$(RESET)"
+	$(Q)$(TEST_BIN) "[config]" || { \
+		echo "$(RED)$(BOLD)✗ Config tests failed!$(RESET)"; \
+		exit 1; \
+	}
+	$(ECHO) "$(GREEN)$(BOLD)✓ Config tests passed!$(RESET)"
+
+$(TEST_BIN): $(TEST_MAIN_OBJ) $(CATCH2_OBJ) $(TEST_OBJS) $(OBJ_DIR)/wizard_validation.o $(OBJ_DIR)/config.o $(LVGL_OBJS) $(THORVG_OBJS) $(OBJ_DIR)/ui_nav.o $(OBJ_DIR)/ui_temp_graph.o
 	$(Q)mkdir -p $(BIN_DIR)
 	$(ECHO) "$(MAGENTA)$(BOLD)[LD]$(RESET) run_tests"
 	$(Q)$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) || { \
 		echo "$(RED)$(BOLD)✗ Test linking failed!$(RESET)"; \
 		exit 1; \
 	}
-	$(ECHO) "$(GREEN)✓ Test binary ready$(RESET)"
+	$(ECHO) "$(GREEN)✓ Unit test binary ready$(RESET)"
+
+# Integration test binary (uses mocks instead of real LVGL)
+$(TEST_INTEGRATION_BIN): $(TEST_MAIN_OBJ) $(CATCH2_OBJ) $(TEST_INTEGRATION_OBJS) $(MOCK_OBJS)
+	$(Q)mkdir -p $(BIN_DIR)
+	$(ECHO) "$(MAGENTA)$(BOLD)[LD]$(RESET) run_integration_tests"
+	$(Q)$(CXX) $(CXXFLAGS) $^ -o $@ $(LDFLAGS) || { \
+		echo "$(RED)$(BOLD)✗ Integration test linking failed!$(RESET)"; \
+		exit 1; \
+	}
+	$(ECHO) "$(GREEN)✓ Integration test binary ready$(RESET)"
+
+# Run integration tests
+test-integration: $(TEST_INTEGRATION_BIN)
+	$(ECHO) "$(CYAN)$(BOLD)Running integration tests (with mocks)...$(RESET)"
+	$(Q)$(TEST_INTEGRATION_BIN) || { \
+		echo "$(RED)$(BOLD)✗ Integration tests failed!$(RESET)"; \
+		exit 1; \
+	}
+	$(ECHO) "$(GREEN)$(BOLD)✓ All integration tests passed!$(RESET)"
 
 # Compile test main (Catch2 runner)
 $(TEST_MAIN_OBJ): $(TEST_DIR)/test_main.cpp
@@ -404,6 +428,12 @@ $(OBJ_DIR)/tests/%.o: $(TEST_UNIT_DIR)/%.cpp
 	$(Q)mkdir -p $(dir $@)
 	$(ECHO) "$(BLUE)[TEST]$(RESET) $<"
 	$(Q)$(CXX) $(CXXFLAGS) -I$(TEST_DIR) $(INCLUDES) -c $< -o $@
+
+# Compile mock sources
+$(OBJ_DIR)/tests/mocks/%.o: $(TEST_MOCK_DIR)/%.cpp
+	$(Q)mkdir -p $(dir $@)
+	$(ECHO) "$(YELLOW)[MOCK]$(RESET) $<"
+	$(Q)$(CXX) $(CXXFLAGS) -I$(TEST_MOCK_DIR) $(INCLUDES) -c $< -o $@
 
 # Dynamic card instantiation test
 TEST_CARDS_BIN := $(BIN_DIR)/test_dynamic_cards

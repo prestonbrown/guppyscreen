@@ -238,6 +238,16 @@ void ui_wizard_goto_step(WizardStep step) {
                         ui_keyboard_register_textarea(port_input);
                     }
 
+                    // Pre-populate IP and port from config
+                    std::string host = config_instance->get<std::string>(config_instance->df() + "moonraker_host");
+                    int port = config_instance->get<int>(config_instance->df() + "moonraker_port");
+                    if (ip_input) {
+                        lv_textarea_set_text(ip_input, host.c_str());
+                    }
+                    if (port_input) {
+                        lv_textarea_set_text(port_input, std::to_string(port).c_str());
+                    }
+
                     lv_obj_t* btn_test = lv_obj_find_by_name(connection_screen, "btn_test_connection");
                     if (btn_test) {
                         lv_obj_add_event_cb(btn_test, on_test_connection_clicked, LV_EVENT_CLICKED, nullptr);
@@ -260,7 +270,7 @@ void ui_wizard_goto_step(WizardStep step) {
                     }
 
                     // Pre-fill printer name from config if available
-                    std::string printer_name = config_instance->get<std::string>(config_instance->df() + "printer_name");
+                    std::string printer_name = config_instance->get<std::string>(config_instance->df() + "printer_name", "");
                     if (!printer_name.empty() && printer_name_input) {
                         lv_textarea_set_text(printer_name_input, printer_name.c_str());
                     } else if (printer_name_input) {
@@ -516,9 +526,12 @@ static void on_test_connection_clicked(lv_event_t* e) {
     (void)e;
     spdlog::info("Wizard: Testing connection to Moonraker");
 
-    // Read host and port from subjects
-    const char* host = static_cast<const char*>(lv_subject_get_pointer(&connection_ip));
-    const char* port_str = static_cast<const char*>(lv_subject_get_pointer(&connection_port));
+    // Read host and port from textareas (subjects are updated on input events)
+    lv_obj_t* ip_input = lv_obj_find_by_name(connection_screen, "ip_input");
+    lv_obj_t* port_input = lv_obj_find_by_name(connection_screen, "port_input");
+
+    const char* host = ip_input ? lv_textarea_get_text(ip_input) : "";
+    const char* port_str = port_input ? lv_textarea_get_text(port_input) : "";
 
     if (!host || strlen(host) == 0) {
         lv_subject_copy_string(&connection_status, "Error: Please enter network address");

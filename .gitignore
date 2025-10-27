@@ -11,3 +11,4 @@ build/
 
 # UI Research - Downloaded source files (can be re-downloaded)
 docs/ui-research/*/downloads/*.pdf
+prototype-ui9.code-workspace

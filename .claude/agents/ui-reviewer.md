@@ -196,6 +196,8 @@ style_align_self="stretch"            <!-- Flexbox self-alignment -->
 4. **Flex Alignment** - Main axis (direction of flow) vs cross axis (perpendicular) confusion is common
 5. **Font Names** - Must exactly match registered fonts (case-sensitive): `fa_icons_48`, `montserrat_20`
 6. **Border Width 0** - Use `style_border_width="0"` to remove borders (not omit the attribute)
+7. **Prefer Semantic Constants** - Use semantic constants either already in existence or new ones whenever it makes sense.
+8. **NO INVALID LVGL XML** - LVGL XML is NOT CSS/HTML.  If there is any doubt, refer to our local LVGL documentation and hints.
 
 ## Output Format
 

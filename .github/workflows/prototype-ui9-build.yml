@@ -47,7 +47,7 @@ jobs:
       run: |
         cd ../libhv
         ./configure --with-openssl=no
-        make -j$(nproc)
+        make libhv -j$(nproc)  # Build library only, skip examples
 
     - name: Build project
       run: make -j$(nproc)
@@ -56,6 +56,9 @@ jobs:
       run: |
         test -f build/bin/helix-ui-proto
         ls -lh build/bin/helix-ui-proto
+
+    - name: Run unit tests
+      run: make test
 
     - name: Generate compile_commands.json
       run: make compile_commands
@@ -93,7 +96,7 @@ jobs:
       run: |
         cd ../libhv
         ./configure --with-openssl=no
-        make -j$(sysctl -n hw.ncpu)
+        make libhv -j$(sysctl -n hw.ncpu)  # Build library only, skip examples
 
     - name: Build project
       run: make -j$(sysctl -n hw.ncpu)
@@ -102,6 +105,9 @@ jobs:
       run: |
         test -f build/bin/helix-ui-proto
         ls -lh build/bin/helix-ui-proto
+
+    - name: Run unit tests
+      run: make test
 
     - name: Generate compile_commands.json
       run: make compile_commands

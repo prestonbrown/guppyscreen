@@ -322,6 +322,7 @@ int main(int argc, char** argv) {
     bool show_file_detail = false;  // Special flag for file detail view
     bool show_keypad = false;  // Special flag for keypad testing
     bool show_step_test = false;  // Special flag for step progress widget testing
+    bool show_test_panel = false;  // Special flag for test/development panel
     bool force_wizard = false;  // Force wizard to run even if config exists
     int wizard_step = -1;  // Specific wizard step to show (-1 means normal flow)
     bool panel_requested = false;  // Track if user explicitly requested a panel via CLI
@@ -394,9 +395,11 @@ int main(int argc, char** argv) {
                     show_file_detail = true;
                 } else if (strcmp(panel_arg, "step-test") == 0 || strcmp(panel_arg, "step_test") == 0) {
                     show_step_test = true;
+                } else if (strcmp(panel_arg, "test") == 0) {
+                    show_test_panel = true;
                 } else {
                     printf("Unknown panel: %s\n", panel_arg);
-                    printf("Available panels: home, controls, motion, nozzle-temp, bed-temp, extrusion, print-status, filament, settings, advanced, print-select, step-test\n");
+                    printf("Available panels: home, controls, motion, nozzle-temp, bed-temp, extrusion, print-status, filament, settings, advanced, print-select, step-test, test\n");
                     return 1;
                 }
             } else {
@@ -713,6 +716,7 @@ int main(int argc, char** argv) {
     lv_xml_register_component_from_file("A:ui_xml/filament_panel.xml");
     lv_xml_register_component_from_file("A:ui_xml/settings_panel.xml");
     lv_xml_register_component_from_file("A:ui_xml/advanced_panel.xml");
+    lv_xml_register_component_from_file("A:ui_xml/test_panel.xml");
     lv_xml_register_component_from_file("A:ui_xml/print_select_panel.xml");
     lv_xml_register_component_from_file("A:ui_xml/step_progress_test.xml");
     lv_xml_register_component_from_file("A:ui_xml/app_layout.xml");
@@ -985,6 +989,22 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Special case: Show test/development panel
+    if (show_test_panel) {
+        printf("Creating and showing test panel...\n");
+
+        // Create test panel (standalone, not part of app_layout)
+        lv_obj_t* test_panel = (lv_obj_t*)lv_xml_create(screen, "test_panel", nullptr);
+        if (test_panel) {
+            // Hide app_layout to show only the test panel
+            lv_obj_add_flag(app_layout, LV_OBJ_FLAG_HIDDEN);
+
+            printf("Test panel displayed\n");
+        } else {
+            LV_LOG_ERROR("Failed to create test panel");
+        }
+    }
+
     // Initialize Moonraker connection
     LV_LOG_USER("Initializing Moonraker client...");
     MoonrakerClient moonraker_client;
@@ -994,7 +1014,7 @@ int main(int argc, char** argv) {
     ui_keyboard_init(screen);
 
     // Check if first-run wizard is required (skip for special test panels and explicit panel requests)
-    if ((force_wizard || config->is_wizard_required()) && !show_step_test && !show_keypad && !panel_requested) {
+    if ((force_wizard || config->is_wizard_required()) && !show_step_test && !show_test_panel && !show_keypad && !panel_requested) {
         LV_LOG_USER("Starting first-run configuration wizard");
 
         lv_obj_t* wizard = ui_wizard_create(screen, config, &moonraker_client, []() {

@@ -1,0 +1,54 @@
+<!--
+  Copyright (C) 2025 356C LLC
+  Author: Preston Brown <pbrown@brown-house.net>
+
+  This file is part of HelixScreen.
+
+  HelixScreen is free software: you can redistribute it and/or modify
+  it under the terms of the GNU General Public License as published by
+  the Free Software Foundation, either version 3 of the License, or
+  (at your option) any later version.
+
+  HelixScreen is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+  GNU General Public License for more details.
+
+  You should have received a copy of the GNU General Public License
+  along with HelixScreen. If not, see <https://www.gnu.org/licenses/>.
+-->
+
+<!-- Test/Development Panel - Only accessible via -p test or - -panel test flag -->
+<component>
+	<view extends="lv_obj" width="100%" height="100%" style_bg_color="#panel_bg" style_pad_all="20" style_border_width="0" flex_flow="column">
+		<lv_label text="Test Panel - Development Scratchpad" style_text_color="#text_primary" style_text_font="montserrat_24"/>
+		<lv_label text="This panel is for testing new features during development" style_text_color="#text_muted" style_text_font="montserrat_12" style_margin_bottom="20"/>
+
+		<!-- Icon Component Tests -->
+		<lv_label text="Icon Variants:" style_text_color="#text_secondary" style_text_font="montserrat_16" style_margin_bottom="10"/>
+
+		<lv_label text="No variant (black):" style_text_color="#text_secondary" style_text_font="montserrat_14" style_margin_top="10" style_margin_bottom="5"/>
+		<lv_obj flex_flow="row" width="100%" height="80" style_pad_all="0" style_border_width="0" style_bg_opa="0">
+			<icon src="mat_home" size="lg" variant="none"/>
+			<icon src="mat_wifi" size="lg" variant="none" style_margin_left="20"/>
+			<icon src="mat_wifi_strength_1" size="lg" variant="none" style_margin_left="20"/>
+			<icon src="mat_wifi_strength_2" size="lg" variant="none" style_margin_left="20"/>
+		</lv_obj>
+
+		<lv_label text="Primary variant (white):" style_text_color="#text_secondary" style_text_font="montserrat_14" style_margin_top="20" style_margin_bottom="5"/>
+		<lv_obj flex_flow="row" width="100%" height="80" style_pad_all="0" style_border_width="0" style_bg_opa="0">
+			<icon src="mat_home" size="lg" variant="primary"/>
+			<icon src="mat_wifi" size="lg" variant="primary" style_margin_left="20"/>
+			<icon src="mat_wifi_strength_1" size="lg" variant="primary" style_margin_left="20"/>
+			<icon src="mat_wifi_strength_2" size="lg" variant="primary" style_margin_left="20"/>
+		</lv_obj>
+
+		<lv_label text="Accent variant (red):" style_text_color="#text_secondary" style_text_font="montserrat_14" style_margin_top="20" style_margin_bottom="5"/>
+		<lv_obj flex_flow="row" width="100%" height="80" style_pad_all="0" style_border_width="0" style_bg_opa="0">
+			<icon src="mat_wifi_lock" size="lg" variant="accent"/>
+			<icon src="mat_wifi_strength_1_lock" size="lg" variant="accent" style_margin_left="20"/>
+			<icon src="mat_wifi_strength_3" size="lg" variant="accent" style_margin_left="20"/>
+			<icon src="mat_wifi_strength_4" size="lg" variant="accent" style_margin_left="20"/>
+		</lv_obj>
+	</view>
+</component>

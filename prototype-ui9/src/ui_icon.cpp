@@ -24,7 +24,10 @@
 #include "lvgl/src/others/xml/lv_xml_widget.h"
 #include "lvgl/src/others/xml/lv_xml_parser.h"
 #include "lvgl/src/others/xml/lv_xml_style.h"
+#include "lvgl/src/others/xml/lv_xml_component.h"
+#include "lvgl/src/others/xml/lv_xml_utils.h"
 #include "lvgl/src/others/xml/parsers/lv_xml_obj_parser.h"
+#include <spdlog/spdlog.h>
 #include <cstring>
 
 /**
@@ -113,56 +116,55 @@ static void apply_size(lv_obj_t* obj, const IconSize& size) {
 }
 
 /**
- * Apply variant color styling to icon widget
- *
- * Note: We look up styles by name from the XML-defined styles in icon.xml.
- * This keeps color constants in XML for easy theming.
+ * Get theme color from globals.xml constants
+ * Falls back to default if constant not found
  */
-static void apply_variant(lv_obj_t* obj, IconVariant variant) {
-    // Remove any existing variant styles first
-    // (LVGL maintains a style list, we want only one variant active)
-    static const char* variant_style_names[] = {
-        "variant_primary",
-        "variant_secondary",
-        "variant_accent",
-        "variant_disabled",
-        "variant_none"
-    };
-
-    for (const char* style_name : variant_style_names) {
-        lv_xml_style_t* xml_style = lv_xml_get_style_by_name(NULL, style_name);
-        if (xml_style) {
-            lv_obj_remove_style(obj, &xml_style->style, LV_PART_MAIN);
-        }
+static lv_color_t get_theme_color(const char* const_name, lv_color_t fallback) {
+    lv_xml_component_scope_t* globals_scope = lv_xml_component_get_scope("globals");
+    if (!globals_scope) {
+        spdlog::warn("[Icon] globals.xml scope not found, using fallback color");
+        return fallback;
     }
 
-    // Apply the requested variant style
-    const char* style_name = nullptr;
+    const char* color_str = lv_xml_get_const(globals_scope, const_name);
+    if (!color_str) {
+        spdlog::debug("[Icon] Constant '{}' not found, using fallback", const_name);
+        return fallback;
+    }
+
+    return lv_xml_to_color(color_str);
+}
+
+/**
+ * Apply variant color styling to icon widget
+ * Reads colors from globals.xml theme constants with fallbacks
+ */
+static void apply_variant(lv_obj_t* obj, IconVariant variant) {
+    lv_color_t color;
+    lv_opa_t opa = LV_OPA_COVER;
+
     switch (variant) {
         case IconVariant::PRIMARY:
-            style_name = "variant_primary";
+            color = get_theme_color("text_primary", lv_color_hex(0xFFFFFF));
             break;
         case IconVariant::SECONDARY:
-            style_name = "variant_secondary";
+            color = get_theme_color("text_secondary", lv_color_hex(0x909090));
             break;
         case IconVariant::ACCENT:
-            style_name = "variant_accent";
+            color = get_theme_color("primary_color", lv_color_hex(0xFF4444));
             break;
         case IconVariant::DISABLED:
-            style_name = "variant_disabled";
+            color = get_theme_color("text_secondary", lv_color_hex(0x909090));
+            opa = LV_OPA_50;
             break;
         case IconVariant::NONE:
         default:
-            style_name = "variant_none";
-            break;
+            lv_obj_set_style_image_recolor_opa(obj, LV_OPA_TRANSP, LV_PART_MAIN);
+            return;
     }
 
-    lv_xml_style_t* xml_style = lv_xml_get_style_by_name(NULL, style_name);
-    if (xml_style) {
-        lv_obj_add_style(obj, &xml_style->style, LV_PART_MAIN);
-    } else {
-        LV_LOG_WARN("Icon variant style '%s' not found in XML", style_name);
-    }
+    lv_obj_set_style_image_recolor(obj, color, LV_PART_MAIN);
+    lv_obj_set_style_image_recolor_opa(obj, opa, LV_PART_MAIN);
 }
 
 /**
@@ -200,22 +202,25 @@ static void ui_icon_xml_apply(lv_xml_parser_state_t* state, const char** attrs) 
     lv_xml_obj_apply(state, attrs);
 
     // Then process icon-specific properties
-    IconSize size = SIZE_XL;  // Track size to apply once
-    IconVariant variant = IconVariant::NONE;  // Track variant to apply once
+    IconSize size = SIZE_XL;
+    IconVariant variant = IconVariant::NONE;
     bool size_set = false;
     bool variant_set = false;
+    bool custom_color_set = false;
+    lv_color_t custom_color;
+    lv_opa_t custom_opa = LV_OPA_COVER;
 
     for (int i = 0; attrs[i]; i += 2) {
         const char* name = attrs[i];
         const char* value = attrs[i + 1];
 
         if (strcmp(name, "src") == 0) {
-            // Look up image by name in XML registry
             const void* img_src = lv_xml_get_image(NULL, value);
             if (img_src) {
                 lv_image_set_src(obj, img_src);
+                spdlog::debug("[Icon] Set icon source: '{}'", value);
             } else {
-                LV_LOG_WARN("Icon image '%s' not found in XML registry", value);
+                spdlog::warn("[Icon] Icon image '{}' not found in XML registry", value);
             }
         }
         else if (strcmp(name, "size") == 0) {
@@ -226,15 +231,21 @@ static void ui_icon_xml_apply(lv_xml_parser_state_t* state, const char** attrs) 
             variant = parse_variant(value);
             variant_set = true;
         }
+        else if (strcmp(name, "color") == 0) {
+            custom_color = lv_xml_to_color(value);
+            custom_color_set = true;
+        }
     }
 
-    // Apply size if it was set
     if (size_set) {
         apply_size(obj, size);
     }
 
-    // Apply variant if it was set
-    if (variant_set) {
+    // Custom color overrides variant
+    if (custom_color_set) {
+        lv_obj_set_style_image_recolor(obj, custom_color, LV_PART_MAIN);
+        lv_obj_set_style_image_recolor_opa(obj, custom_opa, LV_PART_MAIN);
+    } else if (variant_set) {
         apply_variant(obj, variant);
     }
 }
@@ -245,4 +256,56 @@ static void ui_icon_xml_apply(lv_xml_parser_state_t* state, const char** attrs) 
 void ui_icon_register_widget() {
     lv_xml_register_widget("icon", ui_icon_xml_create, ui_icon_xml_apply);
     LV_LOG_USER("Icon widget registered with XML system");
+}
+
+// Public API implementations
+
+void ui_icon_set_source(lv_obj_t* icon, const char* icon_name) {
+    if (!icon || !icon_name) {
+        spdlog::error("[Icon] Invalid parameters to ui_icon_set_source");
+        return;
+    }
+
+    const void* img_src = lv_xml_get_image(NULL, icon_name);
+    if (img_src) {
+        lv_image_set_src(icon, img_src);
+        spdlog::debug("[Icon] Changed icon source to '{}'", icon_name);
+    } else {
+        spdlog::warn("[Icon] Icon image '{}' not found in registry", icon_name);
+    }
+}
+
+void ui_icon_set_size(lv_obj_t* icon, const char* size_str) {
+    if (!icon || !size_str) {
+        spdlog::error("[Icon] Invalid parameters to ui_icon_set_size");
+        return;
+    }
+
+    IconSize size;
+    if (parse_size(size_str, &size)) {
+        apply_size(icon, size);
+        spdlog::debug("[Icon] Changed icon size to '{}'", size_str);
+    }
+}
+
+void ui_icon_set_variant(lv_obj_t* icon, const char* variant_str) {
+    if (!icon || !variant_str) {
+        spdlog::error("[Icon] Invalid parameters to ui_icon_set_variant");
+        return;
+    }
+
+    IconVariant variant = parse_variant(variant_str);
+    apply_variant(icon, variant);
+    spdlog::debug("[Icon] Changed icon variant to '{}'", variant_str);
+}
+
+void ui_icon_set_color(lv_obj_t* icon, lv_color_t color, lv_opa_t opa) {
+    if (!icon) {
+        spdlog::error("[Icon] Invalid icon parameter to ui_icon_set_color");
+        return;
+    }
+
+    lv_obj_set_style_image_recolor(icon, color, LV_PART_MAIN);
+    lv_obj_set_style_image_recolor_opa(icon, opa, LV_PART_MAIN);
+    spdlog::debug("[Icon] Set custom color (opa: {})", opa);
 }

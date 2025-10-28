@@ -13,3 +13,6 @@
 [submodule "prototype-ui9/lvgl"]
 	path = prototype-ui9/lvgl
 	url = https://github.com/lvgl/lvgl.git
+[submodule "prototype-ui9/libhv"]
+	path = prototype-ui9/libhv
+	url = https://github.com/ithewei/libhv.git

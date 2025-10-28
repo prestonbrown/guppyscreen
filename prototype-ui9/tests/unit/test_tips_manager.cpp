@@ -259,25 +259,27 @@ TEST_CASE_METHOD(TipsManagerTestFixture, "TipsManager: reset_viewed_tips() clear
     TipsManager* mgr = TipsManager::get_instance();
     mgr->init(test_tips_file);
 
-    // Get first tip
-    PrintingTip tip1 = mgr->get_random_unique_tip();
-    std::string first_id = tip1.id;
-
-    // Reset viewed tips
-    mgr->reset_viewed_tips();
-
-    // Next tip could be the same as first (reset worked)
-    bool found_same = false;
-    for (int i = 0; i < 10; i++) {
-        mgr->reset_viewed_tips();
+    // Exhaust all 5 tips
+    for (int i = 0; i < 5; i++) {
         PrintingTip tip = mgr->get_random_unique_tip();
-        if (tip.id == first_id) {
-            found_same = true;
-            break;
-        }
+        REQUIRE(!tip.id.empty());
     }
 
-    REQUIRE(found_same == true);
+    // Reset viewed tips (should allow getting all 5 tips again)
+    mgr->reset_viewed_tips();
+
+    // Verify we can get 5 more unique tips (proves reset worked)
+    std::vector<std::string> tip_ids_after_reset;
+    for (int i = 0; i < 5; i++) {
+        PrintingTip tip = mgr->get_random_unique_tip();
+        REQUIRE(!tip.id.empty());
+        tip_ids_after_reset.push_back(tip.id);
+    }
+
+    // Verify all 5 tips after reset are unique
+    std::sort(tip_ids_after_reset.begin(), tip_ids_after_reset.end());
+    auto it = std::unique(tip_ids_after_reset.begin(), tip_ids_after_reset.end());
+    REQUIRE(it == tip_ids_after_reset.end());
 
     TearDown();
 }

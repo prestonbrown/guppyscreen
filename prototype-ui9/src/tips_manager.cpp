@@ -26,6 +26,9 @@ TipsManager *TipsManager::get_instance() {
 bool TipsManager::init(const std::string &tips_path) {
   std::lock_guard<std::mutex> lock(tips_mutex);
 
+  // Reset viewed tips session when reinitializing
+  viewed_tip_ids_.clear();
+
   path = tips_path;
   struct stat buffer;
 
@@ -38,6 +41,12 @@ bool TipsManager::init(const std::string &tips_path) {
     spdlog::info("[TipsManager] Loading tips from {}", tips_path);
     std::ifstream file(tips_path);
     data = json::parse(file);
+
+    // Validate required fields
+    if (!data.contains("categories") || !data["categories"].is_object()) {
+      spdlog::error("[TipsManager] Invalid tips file: missing or invalid 'categories' field");
+      return false;
+    }
 
     // Build cache for fast access
     build_tips_cache();

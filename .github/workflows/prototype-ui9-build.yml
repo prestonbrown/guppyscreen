@@ -1,0 +1,117 @@
+name: Prototype UI9 Build
+
+on:
+  push:
+    branches: [ main, ui-redesign ]
+    paths:
+      - 'prototype-ui9/**'
+      - '.github/workflows/prototype-ui9-build.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'prototype-ui9/**'
+      - '.github/workflows/prototype-ui9-build.yml'
+
+jobs:
+  build-ubuntu:
+    name: Build (Ubuntu)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prototype-ui9
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libsdl2-dev \
+          imagemagick \
+          python3 \
+          clang \
+          make \
+          npm
+
+    - name: Install lv_font_conv
+      run: npm install -g lv_font_conv
+
+    - name: Check dependencies
+      run: make check-deps
+
+    - name: Build project
+      run: make -j$(nproc)
+
+    - name: Verify binary exists
+      run: |
+        test -f build/bin/helix-ui-proto
+        ls -lh build/bin/helix-ui-proto
+
+    - name: Generate compile_commands.json
+      run: make compile_commands
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: helix-ui-proto-ubuntu
+        path: prototype-ui9/build/bin/helix-ui-proto
+        retention-days: 7
+
+  build-macos:
+    name: Build (macOS)
+    runs-on: macos-latest
+    defaults:
+      run:
+        working-directory: prototype-ui9
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install dependencies
+      run: brew install sdl2 imagemagick python3 node
+
+    - name: Install lv_font_conv
+      run: npm install -g lv_font_conv
+
+    - name: Check dependencies
+      run: make check-deps
+
+    - name: Build project
+      run: make -j$(sysctl -n hw.ncpu)
+
+    - name: Verify binary exists
+      run: |
+        test -f build/bin/helix-ui-proto
+        ls -lh build/bin/helix-ui-proto
+
+    - name: Generate compile_commands.json
+      run: make compile_commands
+
+    - name: Upload binary
+      uses: actions/upload-artifact@v4
+      with:
+        name: helix-ui-proto-macos
+        path: prototype-ui9/build/bin/helix-ui-proto
+        retention-days: 7
+
+  build-status:
+    name: Build Status Summary
+    runs-on: ubuntu-latest
+    needs: [build-ubuntu, build-macos]
+    if: always()
+
+    steps:
+    - name: Check build results
+      run: |
+        if [ "${{ needs.build-ubuntu.result }}" != "success" ] || [ "${{ needs.build-macos.result }}" != "success" ]; then
+          echo "❌ Build failed on one or more platforms"
+          exit 1
+        fi
+        echo "✅ All builds successful"

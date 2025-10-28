@@ -1,0 +1,161 @@
+name: Prototype UI9 Quality
+
+on:
+  push:
+    branches: [ main, ui-redesign ]
+    paths:
+      - 'prototype-ui9/**'
+      - '.github/workflows/prototype-ui9-quality.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'prototype-ui9/**'
+      - '.github/workflows/prototype-ui9-quality.yml'
+
+jobs:
+  dependency-check:
+    name: Dependency Validation
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prototype-ui9
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install build essentials
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libsdl2-dev clang make python3
+
+    - name: Verify submodules
+      run: |
+        echo "Checking LVGL submodule..."
+        test -f lvgl/lvgl.h
+        echo "✅ LVGL present"
+
+        echo "Checking libhv symlink..."
+        test -d libhv
+        echo "✅ libhv present"
+
+        echo "Checking spdlog symlink..."
+        test -d spdlog
+        echo "✅ spdlog present"
+
+    - name: Validate Makefile
+      run: |
+        make help
+        echo "✅ Makefile is valid"
+
+    - name: Check XML files
+      run: |
+        echo "Validating XML files are UTF-8 encoded..."
+        for xml in ui_xml/*.xml; do
+          if ! file "$xml" | grep -q "UTF-8"; then
+            echo "❌ $xml is not UTF-8 encoded"
+            exit 1
+          fi
+        done
+        echo "✅ All XML files are UTF-8"
+
+    - name: Validate icon generation script
+      run: |
+        python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 6) else 1)"
+        test -f scripts/generate-icon-consts.py
+        python3 scripts/generate-icon-consts.py --help || true
+        echo "✅ Icon generation script is valid"
+
+    - name: Check screenshot script
+      run: |
+        test -x scripts/screenshot.sh
+        bash -n scripts/screenshot.sh
+        echo "✅ Screenshot script is valid"
+
+  project-structure:
+    name: Project Structure
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prototype-ui9
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Verify required directories
+      run: |
+        test -d src && echo "✅ src/"
+        test -d include && echo "✅ include/"
+        test -d ui_xml && echo "✅ ui_xml/"
+        test -d assets && echo "✅ assets/"
+        test -d assets/fonts && echo "✅ assets/fonts/"
+        test -d assets/images && echo "✅ assets/images/"
+        test -d docs && echo "✅ docs/"
+        test -d scripts && echo "✅ scripts/"
+
+    - name: Verify required files
+      run: |
+        test -f Makefile && echo "✅ Makefile"
+        test -f README.md && echo "✅ README.md"
+        test -f CLAUDE.md && echo "✅ CLAUDE.md"
+        test -f lv_conf.h && echo "✅ lv_conf.h"
+        test -f ui_xml/globals.xml && echo "✅ ui_xml/globals.xml"
+        test -f ui_xml/app_layout.xml && echo "✅ ui_xml/app_layout.xml"
+
+    - name: Verify documentation
+      run: |
+        test -f docs/LVGL9_XML_GUIDE.md && echo "✅ LVGL9_XML_GUIDE.md"
+        test -f docs/QUICK_REFERENCE.md && echo "✅ QUICK_REFERENCE.md"
+        test -f docs/COPYRIGHT_HEADERS.md && echo "✅ COPYRIGHT_HEADERS.md"
+        test -f HANDOFF.md && echo "✅ HANDOFF.md"
+        test -f STATUS.md && echo "✅ STATUS.md"
+
+  copyright-headers:
+    name: Copyright Headers
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: prototype-ui9
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Check C++ copyright headers
+      run: |
+        MISSING=0
+        for file in src/*.cpp include/*.h; do
+          if [ -f "$file" ]; then
+            if ! head -n 5 "$file" | grep -q "Copyright"; then
+              echo "⚠️  Missing copyright header: $file"
+              MISSING=$((MISSING + 1))
+            fi
+          fi
+        done
+
+        if [ $MISSING -gt 0 ]; then
+          echo "❌ Found $MISSING files without copyright headers"
+          exit 1
+        fi
+        echo "✅ All source files have copyright headers"
+
+    - name: Check XML copyright headers
+      run: |
+        MISSING=0
+        for file in ui_xml/*.xml; do
+          if [ -f "$file" ] && [ "$(basename "$file")" != "globals.xml" ]; then
+            if ! head -n 5 "$file" | grep -q "Copyright"; then
+              echo "⚠️  Missing copyright header: $file"
+              MISSING=$((MISSING + 1))
+            fi
+          fi
+        done
+
+        if [ $MISSING -gt 0 ]; then
+          echo "⚠️  Found $MISSING XML files without copyright headers (non-blocking)"
+        else
+          echo "✅ All XML files have copyright headers"
+        fi

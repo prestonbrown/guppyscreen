@@ -52,14 +52,15 @@ jobs:
 
     - name: Check XML files
       run: |
-        echo "Validating XML files are UTF-8 encoded..."
+        echo "Validating XML files are UTF-8 or ASCII encoded..."
         for xml in ui_xml/*.xml; do
-          if ! file "$xml" | grep -q "UTF-8"; then
-            echo "❌ $xml is not UTF-8 encoded"
+          if ! file "$xml" | grep -qE "UTF-8|ASCII"; then
+            echo "❌ $xml is not UTF-8/ASCII encoded"
+            file "$xml"
             exit 1
           fi
         done
-        echo "✅ All XML files are UTF-8"
+        echo "✅ All XML files are UTF-8/ASCII"
 
     - name: Validate icon generation script
       run: |
@@ -127,8 +128,16 @@ jobs:
     - name: Check C++ copyright headers
       run: |
         MISSING=0
+        # Exclude test files (test_*.cpp) and auto-generated files (*_data.h)
         for file in src/*.cpp include/*.h; do
           if [ -f "$file" ]; then
+            # Skip test files and generated files
+            basename=$(basename "$file")
+            if [[ "$basename" == test_*.cpp ]] || [[ "$basename" == *_data.h ]]; then
+              echo "⏭️  Skipping auto-generated/test file: $file"
+              continue
+            fi
+
             if ! head -n 5 "$file" | grep -q "Copyright"; then
               echo "⚠️  Missing copyright header: $file"
               MISSING=$((MISSING + 1))

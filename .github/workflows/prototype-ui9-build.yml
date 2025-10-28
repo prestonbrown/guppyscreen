@@ -43,6 +43,12 @@ jobs:
     - name: Check dependencies
       run: make check-deps
 
+    - name: Build libhv
+      run: |
+        cd ../libhv
+        ./configure --with-openssl=no
+        make -j$(nproc)
+
     - name: Build project
       run: make -j$(nproc)
 
@@ -82,6 +88,12 @@ jobs:
 
     - name: Check dependencies
       run: make check-deps
+
+    - name: Build libhv
+      run: |
+        cd ../libhv
+        ./configure --with-openssl=no
+        make -j$(sysctl -n hw.ncpu)
 
     - name: Build project
       run: make -j$(sysctl -n hw.ncpu)

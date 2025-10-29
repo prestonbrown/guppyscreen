@@ -54,8 +54,15 @@ WiFiManager::WiFiManager()
         [this](const std::string& data) { handle_auth_failed(data); });
 
     // Start backend
-    if (!backend_->start()) {
-        spdlog::error("[WiFiManager] Failed to start WiFi backend");
+    WiFiError start_result = backend_->start();
+    if (!start_result.success()) {
+        spdlog::error("[WiFiManager] Failed to start WiFi backend: {}", start_result.technical_msg);
+        if (!start_result.user_msg.empty()) {
+            spdlog::info("[WiFiManager] User message: {}", start_result.user_msg);
+        }
+        if (!start_result.suggestion.empty()) {
+            spdlog::info("[WiFiManager] Suggestion: {}", start_result.suggestion);
+        }
     } else {
         spdlog::info("[WiFiManager] WiFi backend started successfully");
     }
@@ -86,14 +93,22 @@ std::vector<WiFiNetwork> WiFiManager::scan_once() {
     spdlog::debug("[WiFiManager] Performing single scan");
 
     // Trigger scan and wait briefly for results
-    if (!backend_->trigger_scan()) {
-        spdlog::warn("[WiFiManager] Failed to trigger scan");
+    WiFiError scan_result = backend_->trigger_scan();
+    if (!scan_result.success()) {
+        spdlog::warn("[WiFiManager] Failed to trigger scan: {}", scan_result.technical_msg);
         return {};
     }
 
     // For synchronous scan, we need to get existing results
     // Note: This may not include the just-triggered scan results immediately
-    return backend_->get_scan_results();
+    std::vector<WiFiNetwork> networks;
+    WiFiError get_result = backend_->get_scan_results(networks);
+    if (!get_result.success()) {
+        spdlog::warn("[WiFiManager] Failed to get scan results: {}", get_result.technical_msg);
+        return {};
+    }
+
+    return networks;
 }
 
 void WiFiManager::start_scan(std::function<void(const std::vector<WiFiNetwork>&)> on_networks_updated) {
@@ -113,7 +128,10 @@ void WiFiManager::start_scan(std::function<void(const std::vector<WiFiNetwork>&)
     scan_timer_ = lv_timer_create(scan_timer_callback, 7000, this);
 
     // Trigger immediate scan
-    backend_->trigger_scan();
+    WiFiError scan_result = backend_->trigger_scan();
+    if (!scan_result.success()) {
+        spdlog::warn("[WiFiManager] Failed to trigger initial scan: {}", scan_result.technical_msg);
+    }
 }
 
 void WiFiManager::stop_scan() {
@@ -129,7 +147,10 @@ void WiFiManager::scan_timer_callback(lv_timer_t* timer) {
     WiFiManager* manager = static_cast<WiFiManager*>(lv_timer_get_user_data(timer));
     if (manager && manager->backend_) {
         // Trigger scan - results will arrive via SCAN_COMPLETE event
-        manager->backend_->trigger_scan();
+        WiFiError result = manager->backend_->trigger_scan();
+        if (!result.success()) {
+            spdlog::warn("[WiFiManager] Periodic scan failed: {}", result.technical_msg);
+        }
     }
 }
 
@@ -153,10 +174,11 @@ void WiFiManager::connect(const std::string& ssid,
     connect_callback_ = on_complete;
 
     // Use backend's connect method
-    if (!backend_->connect_network(ssid, password)) {
-        spdlog::error("[WiFiManager] Backend failed to initiate connection");
+    WiFiError result = backend_->connect_network(ssid, password);
+    if (!result.success()) {
+        spdlog::error("[WiFiManager] Backend failed to initiate connection: {}", result.technical_msg);
         if (connect_callback_) {
-            connect_callback_(false, "Failed to start connection");
+            connect_callback_(false, result.user_msg.empty() ? result.technical_msg : result.user_msg);
             connect_callback_ = nullptr;
         }
     }
@@ -170,7 +192,10 @@ void WiFiManager::disconnect() {
     }
 
     spdlog::info("[WiFiManager] Disconnecting");
-    backend_->disconnect_network();
+    WiFiError result = backend_->disconnect_network();
+    if (!result.success()) {
+        spdlog::warn("[WiFiManager] Disconnect failed: {}", result.technical_msg);
+    }
 }
 
 // ============================================================================
@@ -223,7 +248,11 @@ bool WiFiManager::set_enabled(bool enabled) {
     if (!backend_) return false;
 
     if (enabled) {
-        return backend_->start();
+        WiFiError result = backend_->start();
+        if (!result.success()) {
+            spdlog::error("[WiFiManager] Failed to enable WiFi: {}", result.technical_msg);
+        }
+        return result.success();
     } else {
         backend_->stop();
         return true;
@@ -286,8 +315,15 @@ void WiFiManager::handle_scan_complete(const std::string& event_data) {
     spdlog::debug("[WiFiManager] Scan complete event received");
 
     if (scan_callback_) {
-        std::vector<WiFiNetwork> networks = backend_->get_scan_results();
-        scan_callback_(networks);
+        std::vector<WiFiNetwork> networks;
+        WiFiError result = backend_->get_scan_results(networks);
+        if (result.success()) {
+            scan_callback_(networks);
+        } else {
+            spdlog::warn("[WiFiManager] Failed to get scan results: {}", result.technical_msg);
+            // Still call callback with empty results rather than leaving UI hanging
+            scan_callback_({});
+        }
     }
 }
 

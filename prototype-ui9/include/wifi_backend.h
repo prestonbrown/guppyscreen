@@ -26,6 +26,154 @@
 #include <memory>
 
 /**
+ * @brief WiFi operation result with detailed error information
+ */
+enum class WiFiResult {
+    SUCCESS = 0,               ///< Operation succeeded
+    PERMISSION_DENIED,         ///< Insufficient permissions (socket access, etc.)
+    HARDWARE_NOT_AVAILABLE,    ///< No WiFi hardware detected
+    SERVICE_NOT_RUNNING,       ///< wpa_supplicant/network service not running
+    INTERFACE_DOWN,            ///< WiFi interface is down/disabled
+    RF_KILL_BLOCKED,           ///< WiFi blocked by RF-kill (hardware/software)
+    CONNECTION_FAILED,         ///< Failed to connect to wpa_supplicant/service
+    TIMEOUT,                   ///< Operation timed out
+    AUTHENTICATION_FAILED,     ///< Wrong password or authentication error
+    NETWORK_NOT_FOUND,         ///< Specified network not in range
+    INVALID_PARAMETERS,        ///< Invalid SSID, password, or other parameters
+    BACKEND_ERROR,             ///< Internal backend error
+    NOT_INITIALIZED,           ///< Backend not started/initialized
+    UNKNOWN_ERROR              ///< Unexpected error condition
+};
+
+/**
+ * @brief Detailed error information for WiFi operations
+ */
+struct WiFiError {
+    WiFiResult result;           ///< Primary error code
+    std::string technical_msg;   ///< Technical details for logging/debugging
+    std::string user_msg;        ///< User-friendly message for UI display
+    std::string suggestion;      ///< Suggested action for user (optional)
+
+    WiFiError(WiFiResult r = WiFiResult::SUCCESS,
+              const std::string& tech = "",
+              const std::string& user = "",
+              const std::string& suggest = "")
+        : result(r), technical_msg(tech), user_msg(user), suggestion(suggest) {}
+
+    bool success() const { return result == WiFiResult::SUCCESS; }
+    operator bool() const { return success(); }
+};
+
+/**
+ * @brief Utility class for creating user-friendly WiFi error messages
+ */
+class WiFiErrorHelper {
+public:
+    /**
+     * @brief Create permission denied error with helpful suggestions
+     */
+    static WiFiError permission_denied(const std::string& technical_detail) {
+        return WiFiError(
+            WiFiResult::PERMISSION_DENIED,
+            technical_detail,
+            "Permission denied - unable to access WiFi controls",
+            "Try running as administrator or check user permissions"
+        );
+    }
+
+    /**
+     * @brief Create hardware not available error
+     */
+    static WiFiError hardware_not_available() {
+        return WiFiError(
+            WiFiResult::HARDWARE_NOT_AVAILABLE,
+            "No WiFi interfaces detected",
+            "No WiFi hardware found",
+            "Check that WiFi hardware is installed and enabled"
+        );
+    }
+
+    /**
+     * @brief Create service not running error
+     */
+    static WiFiError service_not_running(const std::string& service_name) {
+        return WiFiError(
+            WiFiResult::SERVICE_NOT_RUNNING,
+            service_name + " service not running or not accessible",
+            "WiFi service unavailable",
+            "Check that WiFi services are enabled and running"
+        );
+    }
+
+    /**
+     * @brief Create RF-kill blocked error
+     */
+    static WiFiError rf_kill_blocked() {
+        return WiFiError(
+            WiFiResult::RF_KILL_BLOCKED,
+            "WiFi blocked by RF-kill (hardware or software switch)",
+            "WiFi is disabled",
+            "Check WiFi hardware switch or enable WiFi in system settings"
+        );
+    }
+
+    /**
+     * @brief Create interface down error
+     */
+    static WiFiError interface_down(const std::string& interface_name) {
+        return WiFiError(
+            WiFiResult::INTERFACE_DOWN,
+            "WiFi interface " + interface_name + " is down",
+            "WiFi interface is disabled",
+            "Enable the WiFi interface in network settings"
+        );
+    }
+
+    /**
+     * @brief Create connection failed error
+     */
+    static WiFiError connection_failed(const std::string& technical_detail) {
+        return WiFiError(
+            WiFiResult::CONNECTION_FAILED,
+            technical_detail,
+            "Failed to connect to WiFi system",
+            "Check that WiFi services are running and try again"
+        );
+    }
+
+    /**
+     * @brief Create authentication failed error
+     */
+    static WiFiError authentication_failed(const std::string& ssid) {
+        return WiFiError(
+            WiFiResult::AUTHENTICATION_FAILED,
+            "Authentication failed for network: " + ssid,
+            "Incorrect password or network authentication failed",
+            "Verify the password and try again"
+        );
+    }
+
+    /**
+     * @brief Create network not found error
+     */
+    static WiFiError network_not_found(const std::string& ssid) {
+        return WiFiError(
+            WiFiResult::NETWORK_NOT_FOUND,
+            "Network not found: " + ssid,
+            "Network '" + ssid + "' is not in range",
+            "Move closer to the network or check the network name"
+        );
+    }
+
+    /**
+     * @brief Create success result
+     */
+    static WiFiError success() {
+        return WiFiError(WiFiResult::SUCCESS);
+    }
+};
+
+/**
  * @brief WiFi network information
  */
 struct WiFiNetwork {
@@ -79,9 +227,9 @@ public:
      * Establishes connection to underlying WiFi system (wpa_supplicant, mock, etc.)
      * and starts any background processing threads.
      *
-     * @return true if initialization succeeded
+     * @return WiFiError with detailed status information
      */
-    virtual bool start() = 0;
+    virtual WiFiError start() = 0;
 
     /**
      * @brief Stop the WiFi backend
@@ -129,9 +277,9 @@ public:
      * Initiates scan for available WiFi networks. Results delivered via
      * "SCAN_COMPLETE" event. Use get_scan_results() to retrieve networks.
      *
-     * @return true if scan initiated successfully
+     * @return WiFiError with detailed status information
      */
-    virtual bool trigger_scan() = 0;
+    virtual WiFiError trigger_scan() = 0;
 
     /**
      * @brief Get scan results
@@ -139,9 +287,10 @@ public:
      * Returns networks discovered by the most recent scan.
      * Call after receiving "SCAN_COMPLETE" event for up-to-date results.
      *
-     * @return Vector of WiFiNetwork structs (sorted by signal strength, descending)
+     * @param[out] networks Vector to populate with discovered networks
+     * @return WiFiError with detailed status information
      */
-    virtual std::vector<WiFiNetwork> get_scan_results() = 0;
+    virtual WiFiError get_scan_results(std::vector<WiFiNetwork>& networks) = 0;
 
     // ========================================================================
     // Connection Management
@@ -155,16 +304,16 @@ public:
      *
      * @param ssid Network name
      * @param password Password (empty string for open networks)
-     * @return true if connection attempt initiated successfully
+     * @return WiFiError with detailed status information
      */
-    virtual bool connect_network(const std::string& ssid, const std::string& password) = 0;
+    virtual WiFiError connect_network(const std::string& ssid, const std::string& password) = 0;
 
     /**
      * @brief Disconnect from current network
      *
-     * @return true if disconnect succeeded
+     * @return WiFiError with detailed status information
      */
-    virtual bool disconnect_network() = 0;
+    virtual WiFiError disconnect_network() = 0;
 
     // ========================================================================
     // Status Queries

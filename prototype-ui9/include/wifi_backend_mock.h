@@ -49,17 +49,17 @@ public:
     // WifiBackend Interface Implementation
     // ========================================================================
 
-    bool start() override;
+    WiFiError start() override;
     void stop() override;
     bool is_running() const override;
 
     void register_event_callback(const std::string& name,
                                 std::function<void(const std::string&)> callback) override;
 
-    bool trigger_scan() override;
-    std::vector<WiFiNetwork> get_scan_results() override;
-    bool connect_network(const std::string& ssid, const std::string& password) override;
-    bool disconnect_network() override;
+    WiFiError trigger_scan() override;
+    WiFiError get_scan_results(std::vector<WiFiNetwork>& networks) override;
+    WiFiError connect_network(const std::string& ssid, const std::string& password) override;
+    WiFiError disconnect_network() override;
     ConnectionStatus get_status() override;
 
 private:

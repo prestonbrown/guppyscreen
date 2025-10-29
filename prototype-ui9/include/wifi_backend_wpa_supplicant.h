@@ -89,7 +89,7 @@ public:
      *
      * @return true if initialization succeeded
      */
-    bool start() override;
+    WiFiError start() override;
 
     /**
      * @brief Stop wpa_supplicant backend
@@ -143,14 +143,50 @@ public:
     // Clean Abstraction API - Hides wpa_supplicant ugliness
     // ========================================================================
 
-    bool trigger_scan() override;
-    std::vector<WiFiNetwork> get_scan_results() override;
-    bool connect_network(const std::string& ssid, const std::string& password) override;
-    bool disconnect_network() override;
+    WiFiError trigger_scan() override;
+    WiFiError get_scan_results(std::vector<WiFiNetwork>& networks) override;
+    WiFiError connect_network(const std::string& ssid, const std::string& password) override;
+    WiFiError disconnect_network() override;
     ConnectionStatus get_status() override;
 
 
 private:
+    // ========================================================================
+    // System Validation and Permission Checking
+    // ========================================================================
+
+    /**
+     * @brief Check system prerequisites before starting backend
+     *
+     * Performs comprehensive validation:
+     * - WiFi hardware detection
+     * - wpa_supplicant socket availability
+     * - Permission checking for socket access
+     * - RF-kill status validation
+     *
+     * @return WiFiError with detailed status
+     */
+    WiFiError check_system_prerequisites();
+
+    /**
+     * @brief Check if user has permission to access wpa_supplicant sockets
+     *
+     * @param socket_path Path to test socket access
+     * @return WiFiError indicating permission status
+     */
+    WiFiError check_socket_permissions(const std::string& socket_path);
+
+    /**
+     * @brief Detect WiFi hardware interfaces
+     *
+     * @return WiFiError with hardware status
+     */
+    WiFiError check_wifi_hardware();
+
+    // ========================================================================
+    // wpa_supplicant Communication
+    // ========================================================================
+
     /**
      * @brief Initialize wpa_supplicant connection (runs in event loop thread)
      *

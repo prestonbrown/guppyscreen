@@ -28,7 +28,9 @@
 
 #include "wpa_ctrl.h"
 #include <filesystem>
+#include <fstream>
 #include <cstring>
+#include <cerrno>
 #include <sstream>
 
 namespace fs = std::filesystem;
@@ -47,21 +49,34 @@ WifiBackendWpaSupplicant::~WifiBackendWpaSupplicant() {
     cleanup_wpa();  // SECURITY: Ensure resources are cleaned up
 }
 
-bool WifiBackendWpaSupplicant::start() {
+WiFiError WifiBackendWpaSupplicant::start() {
+    spdlog::debug("[WifiBackend] Starting wpa_supplicant backend...");
+
+    // Pre-flight checks before starting event loop
+    WiFiError preflight_result = check_system_prerequisites();
+    if (!preflight_result.success()) {
+        spdlog::error("[WifiBackend] Pre-flight check failed: {}", preflight_result.technical_msg);
+        return preflight_result;
+    }
+
     if (isRunning()) {
         // Event loop already running - schedule initialization in loop thread
         spdlog::debug("[WifiBackend] Already running, scheduling init_wpa in loop");
         loop()->runInLoop(std::bind(&WifiBackendWpaSupplicant::init_wpa, this));
-        return true;
+        return WiFiErrorHelper::success();
     } else {
         // Start new event loop thread with initialization callback
         spdlog::info("[WifiBackend] Starting event loop thread");
-        hv::EventLoopThread::start(true, [this]() -> int {
-            WifiBackendWpaSupplicant::init_wpa();
-            return 0;  // Return int as expected by libhv (0 = success)
-        });
-        // If we get here without exception, assume success
-        return true;
+        try {
+            hv::EventLoopThread::start(true, [this]() -> int {
+                WifiBackendWpaSupplicant::init_wpa();
+                return 0;  // Return int as expected by libhv (0 = success)
+            });
+            spdlog::info("[WifiBackend] Event loop started successfully");
+            return WiFiErrorHelper::success();
+        } catch (const std::exception& e) {
+            return WiFiErrorHelper::connection_failed("Failed to start event loop: " + std::string(e.what()));
+        }
     }
 }
 
@@ -90,6 +105,169 @@ void WifiBackendWpaSupplicant::register_event_callback(const std::string& name,
         spdlog::warn("[WifiBackend] Callback '{}' already registered (not replacing)", name);
     }
 }
+
+// ============================================================================
+// System Validation and Permission Checking
+// ============================================================================
+
+WiFiError WifiBackendWpaSupplicant::check_system_prerequisites() {
+    spdlog::debug("[WifiBackend] Performing system prerequisites check");
+
+    // 1. Check WiFi hardware availability
+    WiFiError hw_result = check_wifi_hardware();
+    if (!hw_result.success()) {
+        return hw_result;
+    }
+
+    // 2. Check if any wpa_supplicant sockets exist
+    std::vector<std::string> socket_paths = {"/run/wpa_supplicant", "/var/run/wpa_supplicant"};
+    bool socket_found = false;
+    std::string accessible_socket;
+
+    for (const auto& base_path : socket_paths) {
+        if (fs::exists(base_path) && fs::is_directory(base_path)) {
+            spdlog::debug("[WifiBackend] Found wpa_supplicant directory: {}", base_path);
+
+            // Look for interface sockets
+            for (const auto& entry : fs::directory_iterator(base_path)) {
+                if (fs::is_socket(entry.path())) {
+                    std::string socket_path = entry.path().string();
+
+                    // Skip P2P sockets
+                    if (socket_path.find("p2p") == std::string::npos) {
+                        socket_found = true;
+                        spdlog::debug("[WifiBackend] Found wpa_supplicant socket: {}", socket_path);
+
+                        // Check permissions for this socket
+                        WiFiError perm_result = check_socket_permissions(socket_path);
+                        if (perm_result.success()) {
+                            accessible_socket = socket_path;
+                            break;
+                        } else {
+                            spdlog::warn("[WifiBackend] Socket {} permission check failed: {}",
+                                       socket_path, perm_result.technical_msg);
+                        }
+                    }
+                }
+            }
+            if (!accessible_socket.empty()) break;
+        }
+    }
+
+    if (!socket_found) {
+        return WiFiErrorHelper::service_not_running("wpa_supplicant (no control sockets found)");
+    }
+
+    if (accessible_socket.empty()) {
+        return WiFiErrorHelper::permission_denied(
+            "Found wpa_supplicant sockets but cannot access them - check user permissions (netdev group)"
+        );
+    }
+
+    spdlog::info("[WifiBackend] System prerequisites check passed - accessible socket: {}", accessible_socket);
+    return WiFiErrorHelper::success();
+}
+
+WiFiError WifiBackendWpaSupplicant::check_socket_permissions(const std::string& socket_path) {
+    spdlog::trace("[WifiBackend] Checking permissions for socket: {}", socket_path);
+
+    // Try to open a test connection
+    struct wpa_ctrl* test_ctrl = wpa_ctrl_open(socket_path.c_str());
+    if (!test_ctrl) {
+        // Get more specific error information
+        int err = errno;
+        std::string error_detail = "wpa_ctrl_open failed: " + std::string(strerror(err));
+
+        if (err == EACCES || err == EPERM) {
+            return WiFiErrorHelper::permission_denied(error_detail + " (try adding user to netdev group)");
+        } else if (err == ENOENT) {
+            return WiFiErrorHelper::service_not_running("wpa_supplicant socket not found");
+        } else if (err == ECONNREFUSED) {
+            return WiFiErrorHelper::service_not_running("wpa_supplicant daemon not responding");
+        } else {
+            return WiFiErrorHelper::connection_failed(error_detail);
+        }
+    }
+
+    // Test connection successful - close it immediately
+    wpa_ctrl_close(test_ctrl);
+    spdlog::debug("[WifiBackend] Socket permission check passed: {}", socket_path);
+    return WiFiErrorHelper::success();
+}
+
+WiFiError WifiBackendWpaSupplicant::check_wifi_hardware() {
+    spdlog::trace("[WifiBackend] Checking WiFi hardware availability");
+
+    // Check for common WiFi interface patterns in /sys/class/net
+    bool wifi_found = false;
+    std::string interface_name;
+
+    try {
+        const std::string net_path = "/sys/class/net";
+        if (fs::exists(net_path)) {
+            for (const auto& entry : fs::directory_iterator(net_path)) {
+                std::string iface = entry.path().filename().string();
+
+                // Check for common WiFi interface patterns
+                if (iface.find("wlan") == 0 || iface.find("wlp") == 0 ||
+                    iface.find("wlx") == 0 || iface.find("wifi") == 0) {
+
+                    // Verify it's a wireless interface by checking for wireless directory
+                    std::string wireless_path = entry.path().string() + "/wireless";
+                    if (fs::exists(wireless_path)) {
+                        wifi_found = true;
+                        interface_name = iface;
+                        spdlog::debug("[WifiBackend] Found WiFi interface: {}", iface);
+                        break;
+                    }
+                }
+            }
+        }
+    } catch (const fs::filesystem_error& e) {
+        spdlog::warn("[WifiBackend] Error checking WiFi interfaces: {}", e.what());
+        // Don't fail entirely - this might be a permission issue or unusual system
+    }
+
+    if (!wifi_found) {
+        return WiFiErrorHelper::hardware_not_available();
+    }
+
+    // Check RF-kill status
+    try {
+        const std::string rfkill_path = "/sys/class/rfkill";
+        if (fs::exists(rfkill_path)) {
+            for (const auto& entry : fs::directory_iterator(rfkill_path)) {
+                std::string type_file = entry.path().string() + "/type";
+                if (fs::exists(type_file)) {
+                    std::ifstream type_stream(type_file);
+                    std::string type;
+                    if (type_stream >> type && type == "wlan") {
+                        // Check if soft-blocked
+                        std::string soft_file = entry.path().string() + "/soft";
+                        if (fs::exists(soft_file)) {
+                            std::ifstream soft_stream(soft_file);
+                            int soft_blocked;
+                            if (soft_stream >> soft_blocked && soft_blocked == 1) {
+                                return WiFiErrorHelper::rf_kill_blocked();
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+    } catch (const fs::filesystem_error& e) {
+        spdlog::warn("[WifiBackend] Error checking RF-kill status: {}", e.what());
+        // Continue - RF-kill check is nice-to-have
+    }
+
+    spdlog::debug("[WifiBackend] WiFi hardware check passed - interface: {}", interface_name);
+    return WiFiErrorHelper::success();
+}
+
+// ============================================================================
+// wpa_supplicant Communication
+// ============================================================================
 
 void WifiBackendWpaSupplicant::init_wpa() {
     spdlog::trace("[WifiBackend] init_wpa() called in event loop thread");
@@ -316,19 +494,50 @@ bool WifiBackendWpaSupplicant::is_running() const {
     return const_cast<WifiBackendWpaSupplicant*>(this)->isRunning();
 }
 
-bool WifiBackendWpaSupplicant::trigger_scan() {
+WiFiError WifiBackendWpaSupplicant::trigger_scan() {
+    if (!isRunning()) {
+        return WiFiError(WiFiResult::NOT_INITIALIZED, "Backend not started", "WiFi system not ready");
+    }
+
     std::string result = send_command("SCAN");
     if (result == "OK\n") {
-        spdlog::debug("[WifiBackend] Scan triggered");
-        return true;
+        spdlog::debug("[WifiBackend] Scan triggered successfully");
+        return WiFiErrorHelper::success();
+    } else if (result.empty()) {
+        return WiFiErrorHelper::connection_failed("No response from wpa_supplicant SCAN command");
+    } else if (result.find("FAIL") != std::string::npos) {
+        return WiFiError(WiFiResult::BACKEND_ERROR, "wpa_supplicant SCAN command failed: " + result,
+                        "Failed to start network scan", "Check WiFi interface status");
+    } else {
+        spdlog::warn("[WifiBackend] Unexpected scan response: {}", result);
+        return WiFiError(WiFiResult::BACKEND_ERROR, "Unexpected scan response: " + result,
+                        "Network scan returned unexpected result");
     }
-    spdlog::warn("[WifiBackend] Scan failed: {}", result);
-    return false;
 }
 
-std::vector<WiFiNetwork> WifiBackendWpaSupplicant::get_scan_results() {
+WiFiError WifiBackendWpaSupplicant::get_scan_results(std::vector<WiFiNetwork>& networks) {
+    if (!isRunning()) {
+        return WiFiError(WiFiResult::NOT_INITIALIZED, "Backend not started", "WiFi system not ready");
+    }
+
     std::string raw = send_command("SCAN_RESULTS");
-    return parse_scan_results(raw);
+    if (raw.empty()) {
+        return WiFiErrorHelper::connection_failed("No response from wpa_supplicant SCAN_RESULTS command");
+    }
+
+    if (raw.find("FAIL") != std::string::npos) {
+        return WiFiError(WiFiResult::BACKEND_ERROR, "wpa_supplicant SCAN_RESULTS failed: " + raw,
+                        "Failed to retrieve scan results");
+    }
+
+    try {
+        networks = parse_scan_results(raw);
+        spdlog::debug("[WifiBackend] Retrieved {} scan results", networks.size());
+        return WiFiErrorHelper::success();
+    } catch (const std::exception& e) {
+        return WiFiError(WiFiResult::BACKEND_ERROR, "Failed to parse scan results: " + std::string(e.what()),
+                        "Error processing network scan data");
+    }
 }
 
 // Helper function to validate and escape wpa_supplicant strings
@@ -350,18 +559,23 @@ static std::string validate_wpa_string(const std::string& input, const std::stri
     return input;
 }
 
-bool WifiBackendWpaSupplicant::connect_network(const std::string& ssid, const std::string& password) {
+WiFiError WifiBackendWpaSupplicant::connect_network(const std::string& ssid, const std::string& password) {
+    if (!isRunning()) {
+        return WiFiError(WiFiResult::NOT_INITIALIZED, "Backend not started", "WiFi system not ready");
+    }
+
     // SECURITY: Validate inputs to prevent command injection
     std::string clean_ssid = validate_wpa_string(ssid, "SSID");
     if (clean_ssid.empty()) {
-        spdlog::error("[WifiBackend] Invalid SSID - contains dangerous characters");
-        return false;
+        return WiFiError(WiFiResult::INVALID_PARAMETERS,
+                        "SSID contains invalid characters (quotes, control chars, etc.)",
+                        "Invalid network name",
+                        "Check that the network name is correct");
     }
 
     std::string clean_password = validate_wpa_string(password, "password");
     if (!password.empty() && clean_password.empty()) {
-        spdlog::error("[WifiBackend] Invalid password - contains dangerous characters");
-        return false;
+        return WiFiErrorHelper::authentication_failed(ssid + " (password contains invalid characters)");
     }
 
     spdlog::info("[WifiBackend] Connecting to network '{}'", clean_ssid);
@@ -369,8 +583,7 @@ bool WifiBackendWpaSupplicant::connect_network(const std::string& ssid, const st
     // Step 1: Add new network (get network ID)
     std::string add_result = send_command("ADD_NETWORK");
     if (add_result.empty() || add_result == "FAIL\n") {
-        spdlog::error("[WifiBackend] Failed to add network");
-        return false;
+        return WiFiErrorHelper::connection_failed("Failed to add network to wpa_supplicant");
     }
 
     // Parse network ID (should be a number)
@@ -383,8 +596,10 @@ bool WifiBackendWpaSupplicant::connect_network(const std::string& ssid, const st
     // SECURITY: Validate network ID is actually a number
     for (char c : network_id) {
         if (!std::isdigit(c)) {
-            spdlog::error("[WifiBackend] Invalid network ID returned: '{}'", network_id);
-            return false;
+            return WiFiError(WiFiResult::BACKEND_ERROR,
+                           "wpa_supplicant returned invalid network ID: " + network_id,
+                           "Internal WiFi error",
+                           "Try restarting WiFi services");
         }
     }
 
@@ -397,7 +612,7 @@ bool WifiBackendWpaSupplicant::connect_network(const std::string& ssid, const st
         spdlog::error("[WifiBackend] Failed to set SSID: {}", ssid_result);
         // Clean up: remove the network
         send_command("REMOVE_NETWORK " + network_id);
-        return false;
+        return WiFiErrorHelper::connection_failed("Failed to configure network SSID");
     }
 
     // Step 3: Set security (PSK for secured networks, key_mgmt for open)
@@ -408,7 +623,7 @@ bool WifiBackendWpaSupplicant::connect_network(const std::string& ssid, const st
         if (open_result != "OK\n") {
             spdlog::error("[WifiBackend] Failed to set open security: {}", open_result);
             send_command("REMOVE_NETWORK " + network_id);
-            return false;
+            return WiFiErrorHelper::connection_failed("Failed to configure open network security");
         }
         spdlog::debug("[WifiBackend] Configured as open network");
     } else {
@@ -418,7 +633,7 @@ bool WifiBackendWpaSupplicant::connect_network(const std::string& ssid, const st
         if (psk_result != "OK\n") {
             spdlog::error("[WifiBackend] Failed to set PSK");  // Don't log the actual result (may contain password)
             send_command("REMOVE_NETWORK " + network_id);
-            return false;
+            return WiFiErrorHelper::authentication_failed(ssid);
         }
         spdlog::debug("[WifiBackend] Configured with PSK");
     }
@@ -429,7 +644,7 @@ bool WifiBackendWpaSupplicant::connect_network(const std::string& ssid, const st
     if (enable_result != "OK\n") {
         spdlog::error("[WifiBackend] Failed to enable network: {}", enable_result);
         send_command("REMOVE_NETWORK " + network_id);
-        return false;
+        return WiFiErrorHelper::connection_failed("Failed to enable network configuration");
     }
 
     // Step 5: Select network (disconnect others)
@@ -438,16 +653,29 @@ bool WifiBackendWpaSupplicant::connect_network(const std::string& ssid, const st
     if (select_result != "OK\n") {
         spdlog::error("[WifiBackend] Failed to select network: {}", select_result);
         send_command("REMOVE_NETWORK " + network_id);
-        return false;
+        return WiFiErrorHelper::connection_failed("Failed to select network for connection");
     }
 
     spdlog::info("[WifiBackend] Network configuration complete, connecting to '{}'", ssid);
-    return true;
+    return WiFiErrorHelper::success();
 }
 
-bool WifiBackendWpaSupplicant::disconnect_network() {
+WiFiError WifiBackendWpaSupplicant::disconnect_network() {
+    if (!isRunning()) {
+        return WiFiError(WiFiResult::NOT_INITIALIZED, "Backend not started", "WiFi system not ready");
+    }
+
     std::string result = send_command("DISCONNECT");
-    return (result == "OK\n");
+    if (result == "OK\n") {
+        spdlog::debug("[WifiBackend] Disconnect successful");
+        return WiFiErrorHelper::success();
+    } else if (result.empty()) {
+        return WiFiErrorHelper::connection_failed("No response from wpa_supplicant DISCONNECT command");
+    } else {
+        return WiFiError(WiFiResult::BACKEND_ERROR,
+                        "wpa_supplicant DISCONNECT failed: " + result,
+                        "Failed to disconnect from network");
+    }
 }
 
 WifiBackend::ConnectionStatus WifiBackendWpaSupplicant::get_status() {

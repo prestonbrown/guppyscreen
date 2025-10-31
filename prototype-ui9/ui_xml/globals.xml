@@ -24,13 +24,16 @@
 	<px name="nav_width" value="102" />
 	<px name="nav_padding" value="16" />
 	<px name="nav_button_size" value="70" />
+
 	<px name="card_radius" value="8" />
+	
 	<px name="padding_normal" value="20" />
 	<px name="padding_medium" value="12" />
 	<!-- Medium padding/gap for buttons and flex items -->
 	<px name="padding_small" value="10" />
 	<px name="padding_tiny" value="6" />
 	<!-- Minimal padding for very small screens -->
+	
 	<px name="printer_img_size" value="400" />
 	<px name="accent_bar_width" value="4" />
 	<px name="accent_bar_height" value="28" />
@@ -82,8 +85,6 @@
 	<!-- Row height for button containers -->
 
 	<!-- Wizard-specific dimensions -->
-	<px name="wizard_header_min_height" value="32" />
-	<!-- Header height for wizard screens (compact progress indicator) -->
 	<px name="wizard_footer_height" value="74" />
 	<!-- Footer height for wizard screens (navigation buttons) -->
 	<px name="wizard_button_width" value="140" />
@@ -95,11 +96,11 @@
 
 	<!-- Wizard Container - Responsive constants (overridden by C++ at runtime) -->
 	<!-- These defaults are for SMALL screens (800x480). C++ sets values based on detected screen size. -->
-	<px name="wizard_padding" value="12"/>          <!-- Container padding: TINY=6, SMALL=12, LARGE=20 -->
-	<px name="wizard_gap" value="8"/>               <!-- Gap between flex items: TINY=4, SMALL=8, LARGE=12 -->
-	<px name="wizard_header_height" value="32"/>    <!-- Header min-height: TINY=28, SMALL=32, LARGE=40 -->
-	<str name="wizard_header_font" value="montserrat_16"/>   <!-- Progress font: TINY=14, SMALL=16, LARGE=20 -->
-	<str name="wizard_title_font" value="montserrat_20"/>    <!-- Title font: TINY=16, SMALL=20, LARGE=24 -->
+	<px name="wizard_padding" value="12"/>          <!-- Container padding, responsive -->
+	<px name="wizard_gap" value="8"/>               <!-- Gap between flex items, responsive -->
+	<px name="wizard_header_height" value="42"/>    <!-- Header min-height, responsive -->
+	<str name="wizard_header_font" value="montserrat_16"/>   <!-- Progress font, responsive -->
+	<str name="wizard_title_font" value="montserrat_20"/>    <!-- Title font, responsive -->
 
 	<!-- Input field dimensions (text inputs, dropdowns, rollers) -->
 	<px name="input_border_width" value="1" />
@@ -146,7 +147,7 @@
 	<color name="secondary_color" value="#00AAFF" />
 
 	<!-- App background colors (theme-specific variants) -->
-	<color name="app_bg_color_light" value="#F0F3F9" />  <!-- Light mode: soft blue-gray -->
+	<color name="app_bg_color_light" value="#FFFFFF" />  <!-- Light mode: soft blue-gray -->
 	<color name="app_bg_color_dark" value="#1F1F1F" />   <!-- Dark mode: very dark gray -->
 	<color name="app_bg_color" value="#1F1F1F" />        <!-- Runtime-adjusted (default: dark) -->
 
@@ -164,7 +165,7 @@
 	<color name="text_secondary" value="#AAAAAA" />
 
 	<!-- Card background colors (theme-aware: light/dark modes) -->
-	<color name="card_bg_light" value="#FFFFFF" />  <!-- Light mode: Pure white -->
+	<color name="card_bg_light" value="#F0F3F9" />  <!-- Light mode: Pure white -->
 	<color name="card_bg_dark" value="#131313" />   <!-- Dark mode: Very dark gray -->
 
 	<!-- Component dimensions -->

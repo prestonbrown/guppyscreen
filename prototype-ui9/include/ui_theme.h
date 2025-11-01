@@ -111,3 +111,6 @@ lv_color_t ui_theme_parse_color(const char* hex_str);
 // Theme color variant helpers (DRY pattern for light/dark color selection)
 lv_color_t ui_theme_get_color(const char* base_name);
 void ui_theme_apply_bg_color(lv_obj_t* obj, const char* base_name, lv_part_t part = LV_PART_MAIN);
+
+// Font height utility
+int32_t ui_theme_get_font_height(const lv_font_t* font);

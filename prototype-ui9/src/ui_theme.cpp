@@ -269,3 +269,36 @@ void ui_theme_apply_bg_color(lv_obj_t* obj, const char* base_name, lv_part_t par
     spdlog::trace("[Theme] Applied background color {} to object (part={})",
                   base_name, static_cast<int>(part));
 }
+
+/**
+ * Get font line height in pixels
+ *
+ * Returns the total vertical space a line of text will occupy for the given font.
+ * This includes ascender, descender, and line gap. Useful for calculating layout
+ * heights before widgets are created.
+ *
+ * @param font Font to query (e.g., UI_FONT_HEADING, &lv_font_montserrat_16)
+ * @return Line height in pixels, or 0 if font is NULL
+ *
+ * Examples:
+ *   int32_t heading_h = ui_theme_get_font_height(UI_FONT_HEADING);  // ~24px
+ *   int32_t body_h = ui_theme_get_font_height(UI_FONT_BODY);        // ~20px
+ *   int32_t small_h = ui_theme_get_font_height(UI_FONT_SMALL);      // ~15px
+ *
+ *   // Calculate total height for multi-line layout
+ *   int32_t total = ui_theme_get_font_height(UI_FONT_HEADING) +
+ *                   (ui_theme_get_font_height(UI_FONT_BODY) * 3) +
+ *                   (4 * 8);  // 4 gaps of 8px padding
+ */
+int32_t ui_theme_get_font_height(const lv_font_t* font) {
+    if (!font) {
+        spdlog::warn("[Theme] ui_theme_get_font_height: NULL font pointer");
+        return 0;
+    }
+
+    int32_t height = lv_font_get_line_height(font);
+
+    spdlog::trace("[Theme] Font line height: {}px", height);
+
+    return height;
+}

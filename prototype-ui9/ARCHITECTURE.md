@@ -54,19 +54,68 @@ ui_panel_nozzle_update(210);  // All bound widgets update automatically
 - One update propagates to multiple UI elements
 - Clean separation between data and presentation
 
-### 3. Global Theme System
+### 3. LVGL Theme Integration
 
-All styling constants are defined centrally in `ui_xml/globals.xml`:
+HelixScreen uses LVGL 9's built-in theme system for automatic widget styling:
+
+**Architecture:** XML → C++ → LVGL Theme
 
 ```xml
+<!-- ui_xml/globals.xml - Single source of truth for theme values -->
 <consts>
-  <color name="primary_color" value="0xff4444"/>
-  <color name="bg_dark" value="0x1a1a1a"/>
-  <px name="nav_width" value="102"/>
+  <color name="primary_color" value="..."/>
+  <color name="secondary_color" value="..."/>
+
+  <!-- Theme-specific color variants for light/dark mode -->
+  <color name="app_bg_color_light" value="..."/>
+  <color name="app_bg_color_dark" value="..."/>
+  <color name="text_primary_light" value="..."/>
+  <color name="text_primary_dark" value="..."/>
+  <color name="header_text_light" value="..."/>
+  <color name="header_text_dark" value="..."/>
+
+  <str name="font_body" value="..."/>
+  <str name="font_heading" value="..."/>
+  <str name="font_small" value="..."/>
 </consts>
 ```
 
-Referenced throughout XML files with `#name` syntax. Change the entire UI theme by editing one file.
+```cpp
+// src/ui_theme.cpp - Reads XML constants at runtime
+void ui_theme_init(lv_display_t* display, bool dark_mode) {
+    // Read light/dark color variants from XML (NO hardcoded colors!)
+    const char* bg_light = lv_xml_get_const(NULL, "app_bg_color_light");
+    const char* bg_dark = lv_xml_get_const(NULL, "app_bg_color_dark");
+
+    // Override runtime constant based on theme preference
+    lv_xml_component_scope_t* scope = lv_xml_component_get_scope("globals");
+    lv_xml_register_const(scope, "app_bg_color", dark_mode ? bg_dark : bg_light);
+
+    // Initialize LVGL default theme
+    lv_theme_default_init(display, primary_color, secondary_color, dark_mode, base_font);
+}
+```
+
+**Benefits:**
+- ✅ **No recompilation needed** - Edit `globals.xml` to change theme colors
+- ✅ **Automatic styling** - Widgets inherit coordinated styles from theme
+- ✅ **Dark/Light mode** - Runtime theme switching support
+- ✅ **Responsive padding** - Theme auto-adjusts spacing based on screen resolution
+- ✅ **State-based styling** - Automatic pressed/disabled/checked states
+
+**Theme Customization:**
+- **Colors:** `primary_color`, `secondary_color`, `text_primary`, `text_secondary` defined in globals.xml
+- **Fonts:** `font_heading`, `font_body`, `font_small` for manual widget styling when needed
+- **Mode:** Dark/light mode controlled via config file or command-line flags
+
+**Config Persistence:**
+Theme preference saved to `helixconfig.json` and restored on next launch:
+```json
+{
+  "dark_mode": true,
+  ...
+}
+```
 
 ## Component Hierarchy
 
@@ -175,6 +224,31 @@ LVGL uses automatic memory management:
 - Parent widgets automatically free child widgets
 - No manual `free()` calls needed for UI elements
 - Use LVGL's built-in reference counting for shared resources
+
+### Static Object Destructors and Logging
+
+**Problem:** Static/global objects are destroyed during `exit()` in undefined order across translation units (static destruction order fiasco). If your destructor tries to use spdlog, it may crash because spdlog's global logger might already be destroyed.
+
+**Solution:** Use `fprintf(stderr, ...)` instead of spdlog in destructors of static/global objects:
+
+```cpp
+MyManager::~MyManager() {
+    // Use fprintf - spdlog may be destroyed during static cleanup
+    fprintf(stderr, "[MyManager] Shutting down\n");
+    cleanup_resources();
+}
+```
+
+**When this applies:**
+- Destructors of objects stored in static/global variables (e.g., `static std::unique_ptr<WiFiManager>`)
+- Any destructor that might run during `exit()` or program termination
+
+**Reference implementations:**
+- `src/wifi_manager.cpp:71-72`
+- `src/ethernet_manager.cpp:38-41`
+- `src/ethernet_backend_*.cpp` (all backend destructors)
+
+**Note:** This is separate from the weak_ptr pattern used for async callback safety - that protects against managers being explicitly destroyed via `.reset()` while async operations are queued.
 
 ## Thread Safety
 

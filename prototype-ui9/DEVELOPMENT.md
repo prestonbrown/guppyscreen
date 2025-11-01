@@ -73,12 +73,33 @@ make build
 # Run after building
 ./build/bin/helix-ui-proto
 
+# Run with specific theme mode
+./build/bin/helix-ui-proto --dark    # Force dark mode
+./build/bin/helix-ui-proto --light   # Force light mode
+
 # Generate IDE support (one-time setup)
 make compile_commands
 
 # Clean rebuild (only when needed)
 make clean && make -j
 ```
+
+### Theme Mode Control
+
+The UI supports dark and light themes:
+
+```bash
+# Use stored preference from config file (default)
+./build/bin/helix-ui-proto
+
+# Override with dark mode
+./build/bin/helix-ui-proto --dark
+
+# Override with light mode
+./build/bin/helix-ui-proto --light
+```
+
+Theme preference is saved to `helixconfig.json` and persists across launches unless overridden by command-line flags.
 
 ### Build System Features
 
@@ -95,6 +116,51 @@ make V=1  # Shows full compiler commands
 
 For complete build system documentation, see **[BUILD_SYSTEM.md](docs/BUILD_SYSTEM.md)**.
 
+## Configuration File Management
+
+**Pattern:** User-specific config files are git-ignored. Reference/default values live in `data/` directory as templates.
+
+### Template-Based Configuration
+
+```bash
+# First time setup: Copy template to create user config
+cp data/helixconfig.json.template helixconfig.json
+
+# Template is versioned, user config is git-ignored
+git status
+# helixconfig.json appears in .gitignore
+```
+
+**Why this pattern:**
+- **helixconfig.json** (top-level) - User-specific settings, git-ignored
+- **data/helixconfig.json.template** - Default values, versioned in git
+- Prevents accidental commits of user-specific settings (API keys, local paths, preferences)
+- Provides reference defaults for new developers/installations
+
+### Adding New Config Fields
+
+When adding new configuration options:
+
+1. **Add to template** (`data/helixconfig.json.template`)
+   ```json
+   {
+     "config_path": "helixconfig.json",
+     "dark_mode": false,          // NEW: Theme preference
+     "default_printer": "...",
+     ...
+   }
+   ```
+
+2. **Document in code** (src/config.cpp or relevant module)
+   ```cpp
+   // Read theme preference (default: false = light mode)
+   bool dark_mode = config->get<bool>("/dark_mode", false);
+   ```
+
+3. **Update user's config** (automatic via config->save() or manual copy from template)
+
+**Important:** NEVER commit `helixconfig.json` (top-level). Only commit template changes.
+
 ## Multi-Display Development (macOS)
 
 Control which display the UI window appears on for dual-monitor workflows:
@@ -109,6 +175,102 @@ Control which display the UI window appears on for dual-monitor workflows:
 
 # Combine with other options
 ./build/bin/helix-ui-proto -d 1 -s small --panel home
+```
+
+## DPI Configuration & Hardware Profiles
+
+### Overview
+
+LVGL's theme system scales UI elements based on display DPI (dots per inch). This ensures consistent physical sizing across different screen densities—a button should be roughly the same physical size whether displayed on a low-DPI 7" screen or a high-DPI 4.3" screen.
+
+**Key Formula:**
+```c
+// LVGL DPI scaling: LV_DPX_CALC(dpi, value) = (dpi * value + 80) / 160
+// Reference DPI: 160 (no scaling)
+// Example: PAD_DEF=12 @ 160 DPI → 12 pixels
+//          PAD_DEF=12 @ 187 DPI → 14 pixels (scaled up)
+```
+
+### Default DPI
+
+**Default: 160 DPI** (defined in `lv_conf.h` as `LV_DPI_DEF`)
+
+This is LVGL's reference DPI where theme padding values (12/16/20) are used exactly as specified with no scaling. Chosen as a conservative baseline that doesn't assume high-density displays.
+
+### Testing Different Hardware Profiles
+
+Use the `--dpi` flag to test how the UI will appear on target hardware:
+
+```bash
+# Reference DPI (160) - no scaling
+./build/bin/helix-ui-proto --dpi 160
+
+# 7" @ 1024x600 (170 DPI) - BTT Pad 7, similar displays
+./build/bin/helix-ui-proto -s medium --dpi 170
+
+# 5" @ 800x480 (187 DPI) - Common 5" LCD panels
+./build/bin/helix-ui-proto -s medium --dpi 187
+
+# 4.3" @ 720x480 (201 DPI) - FlashForge AD5M, compact screens
+./build/bin/helix-ui-proto -s small --dpi 201
+```
+
+### Target Hardware DPI Reference
+
+| Hardware | Size | Resolution | DPI | Notes |
+|----------|------|------------|-----|-------|
+| **Reference** | — | — | **160** | LVGL baseline (no scaling) |
+| 7" LCD | 7.0" | 1024×600 | 170 | BTT Pad 7, common tablets |
+| 5" LCD | 5.0" | 800×480 | 187 | Popular touch panels |
+| AD5M | 4.3" | 720×480 | 201 | FlashForge printer display |
+
+**DPI Calculation:**
+```
+DPI = sqrt(width² + height²) / diagonal_inches
+
+Example (5" @ 800×480):
+DPI = sqrt(800² + 480²) / 5 = 933.06 / 5 = 186.6 ≈ 187
+```
+
+### How DPI Affects UI
+
+**At 160 DPI (reference):**
+- SMALL screen (≤480px): PAD_DEF=12, PAD_SMALL=8, PAD_TINY=2
+- MEDIUM screen (481-800px): PAD_DEF=16, PAD_SMALL=10, PAD_TINY=4
+- LARGE screen (>800px): PAD_DEF=20, PAD_SMALL=12, PAD_TINY=6
+
+**At 187 DPI (5" screen):**
+- MEDIUM screen PAD_DEF: `(187 * 16 + 80) / 160 = 19` pixels
+- ~19% larger than reference to maintain physical size
+
+**At 201 DPI (4.3" screen):**
+- MEDIUM screen PAD_DEF: `(201 * 16 + 80) / 160 = 20` pixels
+- ~25% larger than reference for smaller, denser display
+
+### Test Suite
+
+Verify DPI scaling behavior:
+```bash
+make test-responsive-theme  # Includes DPI scaling tests
+```
+
+Tests cover:
+- Breakpoint classification (SMALL/MEDIUM/LARGE)
+- DPI scaling accuracy for all hardware profiles (160/170/187/201)
+- Theme toggle preservation
+
+### When to Override DPI
+
+**Keep default (160) when:**
+- Developing on desktop/laptop without target hardware
+- Creating screenshots for documentation
+- Testing responsive layouts independent of density
+
+**Override DPI when:**
+- Testing how UI appears on specific target hardware
+- Verifying touch target sizes are appropriate
+- Validating spacing/padding looks good at actual density
+- Generating screenshots that match real device appearance
 ```
 
 **How it works:**

@@ -19,6 +19,7 @@
  */
 
 #include "ui_wizard_wifi.h"
+#include "ui_theme.h"
 #include "wifi_manager.h"
 #include "ethernet_manager.h"
 #include "ui_keyboard.h"
@@ -141,58 +142,48 @@ void ui_wizard_wifi_register_callbacks() {
 void ui_wizard_wifi_register_responsive_constants() {
     spdlog::debug("[WiFi Screen] Registering responsive constants");
 
-    // Detect screen size
-    int width = lv_display_get_horizontal_resolution(lv_display_get_default());
+    // Use custom breakpoints optimized for our hardware: max(hor_res, ver_res)
+    lv_display_t* display = lv_display_get_default();
+    int32_t hor_res = lv_display_get_horizontal_resolution(display);
+    int32_t ver_res = lv_display_get_vertical_resolution(display);
+    int32_t greater_res = LV_MAX(hor_res, ver_res);
 
     // Calculate responsive values
     const char* card_height;
     const char* ethernet_height;
     const char* toggle_height;
-    const char* switch_size;
-    const char* title_font;
-    const char* status_font;
-    const char* help_font;
     const char* network_title_font;
     const char* network_item_height;
     const char* network_icon_size;
+    const char* size_label;
 
-    if (width < 600) {  // TINY (480x320)
+    if (greater_res <= UI_BREAKPOINT_SMALL_MAX) {  // ≤480: 480x320
         card_height = "80";
         ethernet_height = "70";
-        toggle_height = "30";
-        switch_size = "24";  // Small enough to fit in 30px row
-        title_font = "montserrat_14";
-        status_font = "montserrat_12";
-        help_font = "montserrat_12";
+        toggle_height = "32";  // size="medium" switch + minimal padding
         network_title_font = "montserrat_14";
         network_item_height = "60";
         network_icon_size = "20";
-        spdlog::info("[WiFi Screen] Size: TINY ({}px)", width);
-    } else if (width < 900) {  // SMALL (800x480)
+        size_label = "SMALL";
+    } else if (greater_res <= UI_BREAKPOINT_MEDIUM_MAX) {  // 481-800: 800x480
         card_height = "120";
         ethernet_height = "100";
-        toggle_height = "40";
-        switch_size = "44";  // Proportional to row height
-        title_font = "montserrat_20";
-        status_font = "montserrat_14";
-        help_font = "montserrat_16";
+        toggle_height = "48";  // size="medium" switch + moderate padding
         network_title_font = "montserrat_16";
         network_item_height = "80";
         network_icon_size = "24";
-        spdlog::info("[WiFi Screen] Size: SMALL ({}px)", width);
-    } else {  // LARGE (1024x600+)
+        size_label = "MEDIUM";
+    } else {  // >800: 1024x600+
         card_height = "140";
         ethernet_height = "120";
-        toggle_height = "48";
-        switch_size = "56";  // Proportional to row height
-        title_font = "montserrat_24";
-        status_font = "montserrat_16";
-        help_font = "montserrat_18";
-        network_title_font = "montserrat_18";
+        toggle_height = "64";  // size="medium" switch + comfortable padding
+        network_title_font = lv_xml_get_const(NULL, "font_body");
         network_item_height = "100";
         network_icon_size = "32";
-        spdlog::info("[WiFi Screen] Size: LARGE ({}px)", width);
+        size_label = "LARGE";
     }
+
+    spdlog::info("[WiFi Screen] Screen size: {} (greater_res={}px)", size_label, greater_res);
 
     // Get globals scope
     lv_xml_component_scope_t* scope = lv_xml_component_get_scope("globals");
@@ -201,16 +192,12 @@ void ui_wizard_wifi_register_responsive_constants() {
     lv_xml_register_const(scope, "wifi_card_height", card_height);
     lv_xml_register_const(scope, "wifi_ethernet_height", ethernet_height);
     lv_xml_register_const(scope, "wifi_toggle_height", toggle_height);
-    lv_xml_register_const(scope, "wifi_switch_size", switch_size);
-    lv_xml_register_const(scope, "wifi_title_font", title_font);
-    lv_xml_register_const(scope, "wifi_status_font", status_font);
-    lv_xml_register_const(scope, "wifi_help_font", help_font);
     lv_xml_register_const(scope, "wifi_network_title_font", network_title_font);
     lv_xml_register_const(scope, "network_item_height", network_item_height);
     lv_xml_register_const(scope, "network_icon_size", network_icon_size);
 
-    spdlog::debug("[WiFi Screen] Registered constants: card={}px, ethernet={}px, switch={}px, network_item={}px",
-                  card_height, ethernet_height, switch_size, network_item_height);
+    spdlog::debug("[WiFi Screen] Registered constants: card={}px, ethernet={}px, toggle={}px, network_item={}px",
+                  card_height, ethernet_height, toggle_height, network_item_height);
 }
 
 lv_obj_t* ui_wizard_wifi_create(lv_obj_t* parent) {
@@ -629,18 +616,9 @@ static void populate_network_list(const std::vector<WiFiNetwork>& networks) {
             lv_obj_bind_flag_if_eq(lock_icon, item_data->is_secured, LV_OBJ_FLAG_HIDDEN, 0);
         }
 
-        // Set signal icon color based on strength (not reactive - rarely changes)
-        if (signal_icon) {
-            if (network.signal_strength >= 75) {
-                lv_obj_set_style_text_color(signal_icon, lv_color_hex(0x4CAF50), 0); // Green
-            } else if (network.signal_strength >= 50) {
-                lv_obj_set_style_text_color(signal_icon, lv_color_hex(0xFFC107), 0); // Amber
-            } else if (network.signal_strength >= 25) {
-                lv_obj_set_style_text_color(signal_icon, lv_color_hex(0xFF9800), 0); // Orange
-            } else {
-                lv_obj_set_style_text_color(signal_icon, lv_color_hex(0xF44336), 0); // Red
-            }
-        }
+        // Signal icon color based on strength (theme handles colors)
+        // Could be implemented with state changes if color-coding is needed
+        (void)signal_icon;  // Suppress unused warning
 
         // Store NetworkItemData in user_data for click handler and cleanup
         lv_obj_set_user_data(item, item_data);

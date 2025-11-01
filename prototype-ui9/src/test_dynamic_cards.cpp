@@ -43,7 +43,7 @@ static lv_obj_t* create_file_card(lv_obj_t* parent, const FileData& file) {
     // Instantiate card from XML component
     lv_obj_t* card = (lv_obj_t*)lv_xml_create(parent, "test_card", NULL);
     if (!card) {
-        LV_LOG_ERROR("Failed to create card from test_card component");
+        spdlog::error("Failed to create card from test_card component");
         return nullptr;
     }
 
@@ -53,7 +53,7 @@ static lv_obj_t* create_file_card(lv_obj_t* parent, const FileData& file) {
     lv_obj_t* filament_label = lv_obj_find_by_name(card, "card_filament");
 
     if (!filename_label || !time_label || !filament_label) {
-        LV_LOG_ERROR("Failed to find card child widgets");
+        spdlog::error("Failed to find card child widgets");
         return card;
     }
 
@@ -68,7 +68,7 @@ static lv_obj_t* create_file_card(lv_obj_t* parent, const FileData& file) {
     snprintf(filament_buf, sizeof(filament_buf), "%.1fg", file.filament_grams);
     lv_label_set_text(filament_label, filament_buf);
 
-    LV_LOG_USER("Created card: %s (%s, %s)", file.filename, time_buf, filament_buf);
+    spdlog::debug("Created card: {} ({}, {})", file.filename, time_buf, filament_buf);
 
     return card;
 }
@@ -87,28 +87,26 @@ int main(int, char**) {
         return 1;
     }
 
-    // Create screen with dark background
+    // Create screen (theme handles background)
     lv_obj_t* screen = lv_screen_active();
-    lv_obj_set_style_bg_color(screen, UI_COLOR_PANEL_BG, LV_PART_MAIN);
 
     // Register fonts
-    LV_LOG_USER("Registering fonts...");
+    spdlog::info("Registering fonts...");
     lv_xml_register_font(NULL, "fa_icons_16", &fa_icons_16);
     lv_xml_register_font(NULL, "montserrat_16", &lv_font_montserrat_16);
 
     // Register XML components (globals first, then test_card)
-    LV_LOG_USER("Registering XML components...");
+    spdlog::info("Registering XML components...");
     lv_xml_register_component_from_file("A:ui_xml/globals.xml");
     lv_xml_register_component_from_file("A:ui_xml/test_card.xml");
 
-    // Create scrollable grid container
+    // Create scrollable grid container (theme handles background)
     lv_obj_t* container = lv_obj_create(screen);
     lv_obj_set_size(container, 1024, 800);
     lv_obj_set_flex_flow(container, LV_FLEX_FLOW_ROW_WRAP);
     lv_obj_set_flex_align(container, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START, LV_FLEX_ALIGN_START);
     lv_obj_set_style_pad_all(container, 16, LV_PART_MAIN);
     lv_obj_set_style_pad_gap(container, 20, LV_PART_MAIN);
-    lv_obj_set_style_bg_color(container, UI_COLOR_PANEL_BG, LV_PART_MAIN);
     lv_obj_set_style_border_width(container, 0, LV_PART_MAIN);
     lv_obj_add_flag(container, LV_OBJ_FLAG_SCROLLABLE);
 

@@ -17,42 +17,42 @@
   You should have received a copy of the GNU General Public License
   along with HelixScreen. If not, see <https://www.gnu.org/licenses/>.
 -->
-<!-- Global theme colors and dimensions -->
+<!-- Global dimensions and constants (colors/fonts handled by LVGL theme) -->
 <component>
 <consts>
-	<!-- Main colors -->
-	<color name="bg_dark" value="0x1a1a1a" />
-	<color name="panel_bg" value="0x111410" />
-	<color name="card_bg" value="0x202020" />
-	<color name="card_bg_dark" value="0x3a3d42" />
-
-	<!-- Text colors -->
-	<color name="text_primary" value="0xffffff" />
-	<color name="text_secondary" value="0x909090" />
-	<color name="text_muted" value="0x606060" />
-	<color name="text_on_primary" value="0xffffff" />
-
-	<!-- Brand colors -->
-	<color name="primary_color" value="0xff4444" />
-	<color name="accent_color" value="0x00aaff" />
-	<color name="success_color" value="0x4caf50" />
-	<!-- Green for confirm buttons -->
-	<color name="warning_color" value="0xff9800" />
-	<!-- Orange for warnings -->
-	<color name="button_secondary_bg" value="0x4a4a4a" />
-	<!-- Secondary button background -->
-
 	<!-- UI dimensions -->
 	<px name="nav_width" value="102" />
 	<px name="nav_padding" value="16" />
 	<px name="nav_button_size" value="70" />
+
 	<px name="card_radius" value="8" />
-	<px name="padding_normal" value="20" />
-	<px name="padding_medium" value="12" />
-	<!-- Medium padding/gap for buttons and flex items -->
-	<px name="padding_small" value="10" />
-	<px name="padding_tiny" value="6" />
-	<!-- Minimal padding for very small screens -->
+
+	<!-- Responsive padding size variants (~80% of LVGL defaults)
+	     Runtime selects appropriate variant via ui_theme_register_responsive_padding()
+	     based on max(width, height): SMALL (≤480px), MEDIUM (481-800px), LARGE (>800px)
+	     Target hardware: 480x320 (SMALL), 800x480 (MEDIUM), 1024x600+ (LARGE) -->
+
+	<!-- padding_normal variants (container padding) -->
+	<px name="padding_normal_small" value="12" />
+	<px name="padding_normal_medium" value="16" />
+	<px name="padding_normal_large" value="20" />
+	<px name="padding_normal" value="20" />  <!-- Default, overridden at runtime -->
+
+	<!-- padding_small variants (compact padding) -->
+	<px name="padding_small_small" value="8" />
+	<px name="padding_small_medium" value="10" />
+	<px name="padding_small_large" value="12" />
+	<px name="padding_small" value="10" />  <!-- Default, overridden at runtime -->
+
+	<!-- padding_tiny variants (minimal padding) -->
+	<px name="padding_tiny_small" value="2" />
+	<px name="padding_tiny_medium" value="4" />
+	<px name="padding_tiny_large" value="6" />
+	<px name="padding_tiny" value="6" />  <!-- Default, overridden at runtime -->
+
+	<!-- Non-responsive padding (static across all screen sizes) -->
+	<px name="padding_medium" value="12" />  <!-- Medium padding for buttons/flex items -->
+	
 	<px name="printer_img_size" value="400" />
 	<px name="accent_bar_width" value="4" />
 	<px name="accent_bar_height" value="28" />
@@ -64,7 +64,6 @@
 	<!-- Shared constants -->
 	<px name="print_file_card_padding" value="12" />
 	<px name="print_file_card_spacing" value="8" />
-	<color name="print_file_card_thumbnail_bg" value="0x2a2a2a" />
 
 	<!-- 5-column layout (1280 & 1024 screens) -->
 	<!-- Content: ~890-1146px, 5 cards with 20px gaps -->
@@ -105,8 +104,6 @@
 	<!-- Row height for button containers -->
 
 	<!-- Wizard-specific dimensions -->
-	<px name="wizard_header_min_height" value="32" />
-	<!-- Header height for wizard screens (compact progress indicator) -->
 	<px name="wizard_footer_height" value="74" />
 	<!-- Footer height for wizard screens (navigation buttons) -->
 	<px name="wizard_button_width" value="140" />
@@ -118,11 +115,11 @@
 
 	<!-- Wizard Container - Responsive constants (overridden by C++ at runtime) -->
 	<!-- These defaults are for SMALL screens (800x480). C++ sets values based on detected screen size. -->
-	<px name="wizard_padding" value="12"/>          <!-- Container padding: TINY=6, SMALL=12, LARGE=20 -->
-	<px name="wizard_gap" value="8"/>               <!-- Gap between flex items: TINY=4, SMALL=8, LARGE=12 -->
-	<px name="wizard_header_height" value="32"/>    <!-- Header min-height: TINY=28, SMALL=32, LARGE=40 -->
-	<str name="wizard_header_font" value="montserrat_16"/>   <!-- Progress font: TINY=14, SMALL=16, LARGE=20 -->
-	<str name="wizard_title_font" value="montserrat_20"/>    <!-- Title font: TINY=16, SMALL=20, LARGE=24 -->
+	<px name="wizard_padding" value="12"/>          <!-- Container padding, responsive -->
+	<px name="wizard_gap" value="8"/>               <!-- Gap between flex items, responsive -->
+	<px name="wizard_header_height" value="42"/>    <!-- Header min-height, responsive -->
+	<str name="wizard_header_font" value="montserrat_16"/>   <!-- Progress font, responsive -->
+	<str name="wizard_title_font" value="montserrat_20"/>    <!-- Title font, responsive -->
 
 	<!-- Input field dimensions (text inputs, dropdowns, rollers) -->
 	<px name="input_border_width" value="1" />
@@ -150,26 +147,48 @@
 	<!-- Title bottom padding (was 8px) -->
 
 	<!-- Spacing and gaps -->
-	<px name="gap_normal" value="12" />
-	<!-- Standard gap between flex items -->
-	<px name="gap_large" value="16" />
-	<!-- Larger gap for major sections -->
-	<px name="gap_small" value="8" />
-	<!-- Compact gap for tight layouts -->
-	<px name="gap_tiny" value="6" />
-	<!-- Very tight gap for dense info -->
 
-	<!-- Typography -->
+	<!-- gap_normal variants (flex gap) -->
+	<px name="gap_normal_small" value="8" />
+	<px name="gap_normal_medium" value="10" />
+	<px name="gap_normal_large" value="12" />
+	<px name="gap_normal" value="12" />  <!-- Default, overridden at runtime -->
+
+	<!-- Non-responsive gaps (static across all screen sizes) -->
+	<px name="gap_large" value="16" />   <!-- Larger gap for major sections -->
+	<px name="gap_small" value="8" />    <!-- Compact gap for tight layouts -->
+	<px name="gap_tiny" value="6" />     <!-- Very tight gap for dense info -->
+
+	<!-- Typography - 3 semantic font sizes for design system consistency -->
+	<string name="font_heading" value="montserrat_24" />
 	<string name="font_body" value="montserrat_16" />
-	<!-- Standard body text -->
-	<string name="font_small" value="montserrat_10" />
-	<!-- Small text (captions, metadata, wizard progress) -->
-	<string name="font_heading" value="montserrat_20" />
-	<!-- Section headings -->
-	<string name="font_modal_title" value="montserrat_16" />
-	<!-- Modal dialog titles (consistent with body font for visual hierarchy) -->
-	<string name="font_large" value="montserrat_20" />
-	<!-- Large text (same as heading for now, 48pt removed to save binary space) -->
+	<string name="font_small" value="montserrat_12" />
+
+	<!-- Theme colors -->
+	<color name="primary_color" value="#FF4444" />
+	<color name="secondary_color" value="#00AAFF" />
+
+	<!-- App background colors (theme-specific variants) -->
+	<color name="app_bg_color_light" value="#FFFFFF" />  <!-- Light mode: soft blue-gray -->
+	<color name="app_bg_color_dark" value="#1F1F1F" />   <!-- Dark mode: very dark gray -->
+	<color name="app_bg_color" value="#1F1F1F" />        <!-- Runtime-adjusted (default: dark) -->
+
+	<!-- Primary text colors (theme-specific variants) -->
+	<color name="text_primary_light" value="#565656" />  <!-- Light mode: dark gray -->
+	<color name="text_primary_dark" value="#C4C5C6" />   <!-- Dark mode: light gray -->
+	<color name="text_primary" value="#C4C5C6" />        <!-- Runtime-adjusted (default: dark) -->
+
+	<!-- Header text colors (theme-specific variants) -->
+	<color name="header_text_light" value="#1F1F1F" />   <!-- Light mode: very dark -->
+	<color name="header_text_dark" value="#E3E3E3" />    <!-- Dark mode: very light -->
+	<color name="header_text_color" value="#E3E3E3" />   <!-- Runtime-adjusted (default: dark) -->
+
+	<!-- Secondary text color (same for both themes) -->
+	<color name="text_secondary" value="#AAAAAA" />
+
+	<!-- Card background colors (theme-aware: light/dark modes) -->
+	<color name="card_bg_light" value="#F0F3F9" />  <!-- Light mode: Pure white -->
+	<color name="card_bg_dark" value="#131313" />   <!-- Dark mode: Very dark gray -->
 
 	<!-- Component dimensions -->
 	<px name="header_height" value="60" />
@@ -225,31 +244,6 @@
 	<!-- Standard overlay width (temps, simple panels) -->
 	<percentage name="overlay_panel_width_large" value="83%" />
 	<!-- Large overlay width (motion, complex 2-column panels) -->
-
-	<!-- Numeric Keypad Modal colors only - sizing uses semantic constants above -->
-	<!-- (keypad_padding, keypad_section_gap, etc. removed - use padding_small, gap_normal, etc.) -->
-
-	<!-- Keypad colors -->
-	<color name="keypad_bg" value="0x2a2a2a" />
-	<!-- Dark card background -->
-	<color name="keypad_input_bg" value="0x1e1e1e" />
-	<!-- Darker input display -->
-	<color name="keypad_button_bg" value="0x505050" />
-	<!-- Number button gray (much lighter!) -->
-	<color name="keypad_button_esc_bg" value="0x666666" />
-	<!-- ESC mid-gray -->
-	<color name="keypad_ok_bg" value="0x4caf50" />
-	<!-- Green OK button -->
-	<color name="keypad_accent_orange" value="0xff9800" />
-	<!-- Orange backspace -->
-
-	<!-- Motion control button colors -->
-	<color name="jog_button_bg" value="0x3a3a3a" />
-	<!-- Jog pad buttons (spec: #3a3a3a) -->
-	<color name="jog_pad_border_color" value="0x3a3a3a" />
-	<!-- Subtle circular border ring -->
-	<color name="jog_selected_distance" value="0xcc3333" />
-	<!-- Softer red for selected distance -->
 
 	<!-- Step Progress Indicator -->
 	<px name="step_indicator_size" value="24" />
@@ -313,29 +307,6 @@
 	<!-- Subjects are initialized in C++ code before XML loading              -->
 	<!-- ===================================================================== -->
 </consts>
-
-<!-- Global Styles -->
-<styles>
-	<!-- Icon color variant styles (used by custom icon widget) -->
-	<style name="variant_primary"
-	       image_recolor="#text_primary"
-	       image_recolor_opa="100%"/>
-
-	<style name="variant_secondary"
-	       image_recolor="#text_secondary"
-	       image_recolor_opa="100%"/>
-
-	<style name="variant_accent"
-	       image_recolor="#primary_color"
-	       image_recolor_opa="100%"/>
-
-	<style name="variant_disabled"
-	       image_recolor="#text_secondary"
-	       image_recolor_opa="50%"/>
-
-	<style name="variant_none"
-	       image_recolor_opa="0%"/>
-</styles>
 
 <view extends="lv_obj"/>
 </component>

@@ -206,8 +206,8 @@ static void create_y_axis_labels(lv_obj_t* container, const heater_config_t* con
         char buf[8];
         snprintf(buf, sizeof(buf), "%d°", temp);
         lv_label_set_text(label, buf);
-        lv_obj_set_style_text_color(label, lv_color_hex(0x808080), 0);  // Gray
-        lv_obj_set_style_text_font(label, UI_FONT_TINY, 0);  // Compact chart axis labels
+        // Theme handles text color
+        lv_obj_set_style_text_font(label, UI_FONT_SMALL, 0);  // Compact chart axis labels
     }
 }
 

@@ -30,7 +30,7 @@
 	      style_bg_opa="0"
 	      style_border_width="0"
 	      style_shadow_width="0"
-	      style_pad_all="#list_item_padding"
+	      style_pad_all="0"
 	      style_pad_gap="#list_item_padding"
 	      flex_flow="row"
 	      style_flex_main_place="start"
@@ -40,7 +40,7 @@
 		<lv_label name="signal_icon"
 		          text="#icon_wifi"
 		          style_text_font="fa_icons_24"
-		          style_text_color="#text_secondary"/>
+/>
 
 		<!-- SSID and security type column (center) -->
 		<lv_obj flex_grow="1"
@@ -57,19 +57,19 @@
 			<lv_label name="ssid_label"
 			          width="100%"
 			          style_text_font="#wifi_network_title_font"
-			          style_text_color="#text_primary"/>
+/>
 
 			<!-- Security type -->
 			<lv_label name="security_label"
 			          width="100%"
 			          style_text_font="montserrat_12"
-			          style_text_color="#text_muted"/>
+			          style_text_color="#text_secondary"/>
 		</lv_obj>
 
 		<!-- Lock icon (right) - shown for secured networks -->
 		<lv_label name="lock_icon"
 		          text="#icon_lock"
 		          style_text_font="fa_icons_24"
-		          style_text_color="#text_secondary"/>
+/>
 	</view>
 </component>

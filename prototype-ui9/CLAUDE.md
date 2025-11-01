@@ -2,254 +2,193 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## ⚠️ MANDATORY AGENT DELEGATION POLICY ⚠️
+
+**YOU WILL BE GIVEN 100 LASHES IF YOU FAIL TO DELEGATE TO AGENTS WHEN REQUIRED.**
+
+This is **NOT** a suggestion. This is a **HARD REQUIREMENT**. Violating this wastes tokens, burns context, and ignores specialized agent expertise.
+
+### YOU MUST USE AGENTS FOR (NOT OPTIONAL):
+
+1. **Any UI/XML work** → `widget-maker` agent
+   - Modifying XML layouts
+   - Creating/updating UI components
+   - Working with LVGL 9 XML patterns
+   - Updating multiple XML files with similar changes
+
+2. **Systematic file modifications (3+ files with same pattern)** → Appropriate agent
+   - Refactoring across codebase → `refractor`
+   - Adding similar features to multiple panels → `widget-maker` or `general-coding-agent`
+   - Updating imports/patterns across files → `refractor`
+
+3. **Codebase exploration** → `Explore` agent with thoroughness level
+   - "How does X work?"
+   - "Where are Y handled?"
+   - Finding architectural patterns
+   - **Specify thoroughness:** `quick`, `medium`, or `very thorough`
+
+4. **Code review** → `code-reviewer` agent
+   - After completing significant features
+   - Before committing major changes
+
+### IMMEDIATE STOP SIGNALS - Delegate NOW:
+
+- You're about to read/edit 3+ similar files → **STOP. Use agent.**
+- You're modifying UI XML → **STOP. Use widget-maker.**
+- You're doing repetitive edits across files → **STOP. Use refractor.**
+- You're searching "how does X work?" → **STOP. Use Explore agent.**
+- You're implementing a multi-file feature → **STOP. Use appropriate agent.**
+
+### Correct Agent Usage Pattern:
+
+```
+1. Recognize delegation opportunity
+2. Invoke Task tool with:
+   - Correct subagent_type
+   - Complete, detailed prompt
+   - What you need back
+3. Wait for agent report
+4. Act on results
+```
+
+### WRONG Pattern (DO NOT DO THIS):
+
+```
+1. Start reading files yourself
+2. Start editing files yourself
+3. Realize halfway through you should have used agent
+4. Continue anyway (wasting context)
+```
+
+**Remember: Agents work independently, report concisely, and keep your context clean. USE THEM.**
+
+---
+
+## ⚠️ CRITICAL RULES - CHECK BEFORE CODING ⚠️
+
+**These rules are MANDATORY and frequently violated. Check this list before proposing any code changes.**
+
+### 1. NO Hardcoded Colors or Dimensions in C++
+
+**Rule**: ALL colors and responsive dimensions must be defined in `globals.xml` and read at runtime via `lv_xml_get_const()`.
+
+```cpp
+// ❌ WRONG - Hardcoded color (violates architecture)
+lv_obj_set_style_border_color(obj, lv_color_hex(0xE0E0E0), LV_PART_MAIN);
+
+// ✅ CORRECT - Read from XML
+const char* border_color_str = lv_xml_get_const(NULL, "card_border_light");
+lv_color_t border_color = ui_theme_parse_color(border_color_str);
+lv_obj_set_style_border_color(obj, border_color, LV_PART_MAIN);
+```
+
+**Pattern for theme-aware colors**:
+1. Define `*_light` and `*_dark` variants in `globals.xml`
+2. Read both variants in C++ init function
+3. Apply appropriate color based on theme mode
+
+**Example**: See `ui_card.cpp:39-59` for complete implementation pattern.
+
+**Why**: No recompilation needed for theme changes, consistent styling, dark/light mode support.
+
+### 2. Reference Existing Code Patterns FIRST
+
+**Rule**: Before implementing any feature, find and study similar existing implementations.
+
+- New UI panel? → Study `motion_panel.xml` / `ui_panel_motion.cpp`
+- New overlay? → Study `nozzle_temp_panel.xml` / `ui_panel_controls_temp.cpp`
+- Theme-aware widget? → Study `ui_card.cpp` pattern
+- Responsive constants? → Study `ui_wizard.cpp:73-131`
+
+**Why**: Maintains architectural consistency, avoids reinventing patterns, prevents subtle bugs.
+
+### 3. Use spdlog for ALL Console Output
+
+**Rule**: NEVER use printf, cout, cerr, LV_LOG_* macros. Use spdlog exclusively.
+
+```cpp
+// ❌ WRONG - Using printf/cout/LV_LOG_*
+printf("[Temp] Temperature: %d°C\n", temp);
+std::cout << "Error: file not found" << std::endl;
+LV_LOG_USER("Panel initialized");
+
+// ✅ CORRECT - Using spdlog with fmt-style formatting
+#include <spdlog/spdlog.h>
+spdlog::info("[Temp] Temperature: {}°C", temp);
+spdlog::error("Error: file not found");
+spdlog::info("Panel initialized");
+```
+
+**Log levels**: `trace()` (very detailed), `debug()` (development), `info()` (normal events), `warn()` (recoverable issues), `error()` (failures)
+
+**Verbosity flags**: `-v` (info), `-vv` (debug), `-vvv` (trace). Default: warn only.
+
+**Why**: Consistent output, configurable verbosity, proper formatting.
+
+### 4. Read Documentation Before Implementation
+
+**Rule**: For areas with known gotchas, read the relevant docs BEFORE coding:
+
+- XML syntax/attributes → **docs/LVGL9_XML_GUIDE.md** "Troubleshooting"
+- Flex/Grid layouts → **docs/LVGL9_XML_GUIDE.md** "Layouts & Positioning"
+- Build system/patches → **docs/BUILD_SYSTEM.md**
+- Architecture patterns → **ARCHITECTURE.md**
+
+**Why**: Prevents repeating known mistakes, saves debugging time.
+
+---
+
 ## Project Overview
 
 This is the **LVGL 9 UI Prototype** for HelixScreen - a declarative XML-based touch UI system using LVGL 9.4 with reactive Subject-Observer data binding. The prototype runs on SDL2 for rapid development and will eventually target framebuffer displays on embedded hardware.
 
 **Key Innovation:** Complete separation of UI layout (XML) from business logic (C++), similar to modern web frameworks. No manual widget management - all updates happen through reactive subjects.
 
-## Build Requirements
+## Quick Start
 
-### macOS (Homebrew)
-```bash
-brew install sdl2 bear imagemagick python3 node
-npm install  # Install lv_font_conv and other dev dependencies
-```
+**See DEVELOPMENT.md for complete setup instructions.**
 
-### Debian/Ubuntu (apt)
-```bash
-sudo apt install libsdl2-dev bear imagemagick python3 clang make npm
-npm install  # Install lv_font_conv and other dev dependencies
-```
+**Essential dependencies**: SDL2, clang/gcc, make, python3, npm
+**Install**: `brew install sdl2` (macOS) or `sudo apt install libsdl2-dev` (Linux), then `npm install`
 
-### Fedora/RHEL/CentOS (dnf/yum)
-```bash
-sudo dnf install SDL2-devel bear ImageMagick python3 clang make npm
-# OR on older systems:
-sudo yum install SDL2-devel bear ImageMagick python3 clang make npm
-npm install  # Install lv_font_conv and other dev dependencies
-```
-
-**Required:**
-- `clang` - C/C++ compiler (C++17 support)
-- `libsdl2-dev` / `SDL2-devel` - SDL2 display simulator
-- `make` - GNU Make build system
-- `python3` - Icon generation scripts
-- `node` / `npm` - Package manager for JavaScript dependencies
-- `lv_font_conv` - Font converter (installed via `npm install`, defined in package.json)
-
-**Optional (for IDE support):**
-- `bear` - Generates `compile_commands.json` for LSP/clangd
-
-**Optional (for screenshots/icon generation):**
-- `imagemagick` - BMP to PNG conversion in screenshot script, icon generation (`make icon`)
-- `iconutil` - macOS .icns icon generation (macOS only, built-in; Linux generates PNG only)
-
-## Build System
+**Build & Run**:
 
 ```bash
-# Common commands
-make -j           # Parallel build (auto-detects CPU cores)
-make build        # Clean parallel build with progress/timing
-make V=1          # Verbose mode (shows full compiler commands)
-make help         # Show all targets and options
-make check-deps   # Verify dependencies
-
-# Development
-make compile_commands  # Generate compile_commands.json for IDE/LSP
-make run              # Build and run
+make -j                          # Parallel build
+./build/bin/helix-ui-proto       # Run (default: home panel, small screen)
+./build/bin/helix-ui-proto -p motion -s large  # Specific panel/size
 ```
 
-**Key features:**
-- Color-coded output: `[CXX]` (blue), `[CC]` (cyan), `[LD]` (magenta)
-- Verbose mode with `V=1` shows full commands
-- Automatic dependency checking before builds
-- Fail-fast with clear error messages and full command on failure
-- Auto-detects CPU cores: Use `make -j` for parallel builds (16 cores on current system)
+**Common commands**:
+- `make -j` - Parallel build (auto-detects cores)
+- `make build` - Clean build
+- `make help` - Show all targets
+- **NEVER invoke compilers directly** - always use `make`
 
-**Cross-Platform Development:**
-- This project is developed on **both macOS and Linux**
-- **NEVER invoke compilers directly** (clang++, g++, etc.) - always use `make`
-- Makefile auto-detects available compiler (clang > gcc priority)
-- Platform-specific features are handled via Makefile platform detection
-- Test on both platforms when possible (WiFi features Linux-only)
+**Binary**: `build/bin/helix-ui-proto`
+**Panels**: home, controls, motion, nozzle-temp, bed-temp, extrusion, filament, settings, advanced, print-select
 
-**Binary:** `build/bin/helix-ui-proto`
-**Panels:** home, controls, motion, nozzle-temp, bed-temp, extrusion, filament, settings, advanced, print-select
-
-### Modular Makefile Structure
-
-The build system uses a modular design for maintainability (960 lines total):
-
-- **Makefile** (222 lines) - Configuration, variables, platform detection, module includes
-- **mk/deps.mk** (316 lines) - Dependency checking (`check-deps`, `install-deps`, `libhv-build`)
-- **mk/tests.mk** (162 lines) - All test targets (unit, integration, specialized tests)
-- **mk/fonts.mk** (122 lines) - Font/icon generation, Material icons, LVGL patches
-- **mk/rules.mk** (138 lines) - Compilation rules, linking, main build targets
-
-This structure separates concerns, making it easier to navigate and maintain. Each module is self-contained and includes a GPL-3 copyright header.
-
-### Multi-Display Support (macOS)
-
-The prototype supports multi-monitor workflows with automatic display positioning:
-
-```bash
-# Run on specific display (centered)
-./build/bin/helix-ui-proto --display 0    # Display 0 (main)
-./build/bin/helix-ui-proto --display 1    # Display 1 (secondary)
-
-# Exact positioning
-./build/bin/helix-ui-proto --x-pos 100 --y-pos 200
-
-# Combine with other options
-./build/bin/helix-ui-proto -d 1 -s small --panel home
-```
-
-**Implementation:** Uses LVGL submodule patch (auto-applied by Makefile) that reads environment variables to control SDL window position. See `patches/lvgl_sdl_window_position.patch`.
-
-### Screenshot Workflow ⚠️
-
-**ALWAYS use the screenshot script instead of manual BMP/magick commands:**
-
-```bash
-# Basic usage (auto-opens on display 1):
-./scripts/screenshot.sh helix-ui-proto output [panel_name]
-
-# With flags (panel optional - flags can be 3rd arg if no panel specified):
-./scripts/screenshot.sh helix-ui-proto output panel -s small
-./scripts/screenshot.sh helix-ui-proto wizard-test --wizard -s tiny
-
-# Override display:
-HELIX_SCREENSHOT_DISPLAY=0 ./scripts/screenshot.sh helix-ui-proto output panel
-
-# Examples:
-./scripts/screenshot.sh helix-ui-proto extrusion-test extrusion
-./scripts/screenshot.sh helix-ui-proto controls-launcher controls -s large
-./scripts/screenshot.sh helix-ui-proto home-panel home
-./scripts/screenshot.sh helix-ui-proto wizard-tiny --wizard -s tiny
-```
-
-**Script features:**
-- ✅ Dependency validation (ImageMagick)
-- ✅ Panel name validation with helpful error messages
-- ✅ Flexible argument handling (panel optional, flags pass-through)
-- ✅ Colored output with progress indicators
-- ✅ Opens window on display 1 by default (keeps terminal visible)
-- ✅ BMP → PNG conversion with cleanup
-- ✅ Comprehensive error handling
-- ✅ Optional auto-open: `HELIX_SCREENSHOT_OPEN=1 ./scripts/screenshot.sh ...`
-- ✅ Auto-screenshot and auto-quit (via `--screenshot 2 --timeout 3` flags)
-- ✅ No external timeout utility required (uses native binary flags)
-
-**Environment variables:**
-- `HELIX_SCREENSHOT_DISPLAY` - Override display (default: 1)
-- `HELIX_SCREENSHOT_OPEN` - Auto-open in Preview after capture
-
-**Manual screenshot usage:**
-- The binary accepts `--screenshot [seconds]` flag to take a screenshot after the specified delay
-- Default delay is 2 seconds if no value is provided (e.g., `--screenshot` or `--screenshot 2`)
-- Without the flag, no screenshot is taken (useful for interactive development)
-- The screenshot script automatically passes `--screenshot 2 --timeout 3` for automated capture
-- Example: `./build/bin/helix-ui-proto --panel home --screenshot 3 --timeout 5` (screenshot at 3s, quit at 5s)
-
-**Auto-quit timeout:**
-- Use `--timeout <seconds>` or `-t <seconds>` to automatically quit after specified time
-- Useful for automated screenshot workflows and CI/CD pipelines
-- Range: 1-3600 seconds (1 hour max)
-- Example: `./build/bin/helix-ui-proto --timeout 10` (quit after 10 seconds)
-
-**❌ Avoid:** Reading raw BMPs from `/tmp` and manually running `magick` commands. The screenshot script is the canonical way to capture UI states.
-
-## Logging Policy
-
-**CRITICAL:** All debug, info, warning, and error messages must use **spdlog** for console output.
-
-### Usage
-
-```cpp
-#include <spdlog/spdlog.h>
-
-// Log levels (use appropriately):
-spdlog::trace("Very detailed tracing");           // Function entry/exit, frequent events
-spdlog::debug("Debug information");               // Development/debugging details
-spdlog::info("General information");              // Normal operation events
-spdlog::warn("Warning condition");                // Recoverable issues, fallback behavior
-spdlog::error("Error condition");                 // Failed operations, missing resources
-```
-
-### Default Log Level & Verbosity Control
-
-**Default Level:** `warn` (shows only warnings and errors)
-
-To increase verbosity, use command-line flags:
-```bash
-# Default (warn): Only warnings and errors
-./build/bin/helix-ui-proto
-
-# Info level: General information + warnings + errors
-./build/bin/helix-ui-proto -v
-./build/bin/helix-ui-proto --verbose
-
-# Debug level: Detailed debugging + info + warnings + errors
-./build/bin/helix-ui-proto -vv
-
-# Trace level: Everything (very verbose)
-./build/bin/helix-ui-proto -vvv
-```
-
-**Tip:** For development and debugging, use `-v` or `-vv` to see initialization messages, state changes, and connection events. Use `-vvv` only when diagnosing complex issues (produces very verbose output).
-
-### Formatting
-
-- Use **fmt-style formatting** (modern C++ format): `spdlog::info("Value: {}", val);`
-- **NOT** printf-style: ~~`spdlog::info("Value: %d", val);`~~
-- Enums must be cast: `spdlog::debug("Panel ID: {}", (int)panel_id);`
-- Pointers: `spdlog::debug("Widget: {}", (void*)widget);`
-
-### Best Practices
-
-1. **Choose appropriate log levels:**
-   - `trace()` - Observer callbacks, frequent update loops
-   - `debug()` - Button clicks, panel transitions, internal state changes
-   - `info()` - Initialization complete, major milestones, user actions
-   - `warn()` - Invalid input (with fallback), deprecated behavior
-   - `error()` - Failed resource loading, NULL pointers, invalid state
-
-2. **Add context to messages:**
-   - Include component prefix: `[Temp]`, `[Motion]`, `[Nav]`
-   - Include relevant values: `"Temperature: {}°C", temp`
-   - Use descriptive messages: "Nozzle panel created and initialized"
-
-3. **Do NOT use:**
-   - `printf()` / `fprintf()` - Use spdlog instead
-   - `std::cout` / `std::cerr` - Use spdlog instead
-   - `LV_LOG_*` macros - Use spdlog instead
-
-4. **Note:** `snprintf()` is fine for **formatting strings into buffers** (not logging).
-
-### Example Conversions
-
-```cpp
-// BEFORE:
-printf("[Temp] Temperature set to %d°C\n", temp);
-std::cerr << "Error: file not found" << std::endl;
-LV_LOG_USER("Panel initialized");
-
-// AFTER:
-spdlog::info("[Temp] Temperature set to {}°C", temp);
-spdlog::error("Error: file not found");
-spdlog::info("Panel initialized");
-```
+**Screenshots**: Use `./scripts/screenshot.sh helix-ui-proto output [panel_name]` (see DEVELOPMENT.md)
 
 ## Architecture
 
 ```
 XML Components (ui_xml/*.xml)
-    ↓ bind_text/bind_value/bind_flag
+    ↓ Theme constants + bind_text/bind_value/bind_flag
+LVGL Theme System (ui_theme.cpp)
+    ↓ Reads XML constants, initializes theme
 Subjects (reactive data)
     ↓ lv_subject_set_*/copy_*
 C++ Wrappers (src/ui_*.cpp)
 ```
+
+**Theme System:**
+- `globals.xml` defines theme colors with light/dark variants (e.g., `*_light`/`*_dark` suffix pattern) and semantic fonts
+- `ui_theme.cpp` reads color variants from XML and overrides runtime constants based on theme preference
+- **NO hardcoded colors in C++** - all color values defined in XML
+- Supports dark/light mode via `--dark`/`--light` command-line flags
+- Theme preference persisted in `helixconfig.json` and restored on next launch
+- **No recompilation needed** - edit `globals.xml` to change theme colors
 
 **Component Hierarchy:**
 ```
@@ -263,6 +202,27 @@ app_layout.xml
 ```
 
 All components reference `globals.xml` for shared constants (`#primary_color`, `#nav_width`, etc).
+
+### Pluggable Backend Pattern
+
+**Platform-specific functionality (WiFi, Ethernet) uses abstract interfaces:**
+
+```
+Manager (high-level API)
+  ↓ Factory Pattern
+Backend (abstract interface)
+  ↓ Implemented by platform-specific backends
+{macOS Backend, Linux Backend, Mock Backend}
+```
+
+**Why this pattern:**
+- No platform `#ifdef` clutter in manager code
+- All backends compile on all platforms (factory selects at runtime)
+- Mock backends enable testing without hardware
+- Consistent pattern across WiFi, Ethernet, future features
+
+**Example:** WiFi uses WiFiManager → WifiBackend → {WifiBackendMacOS, WifiBackendWpaSupplicant, WifiBackendMock}
+**Example:** Ethernet uses EthernetManager → EthernetBackend → {EthernetBackendMacOS, EthernetBackendLinux, EthernetBackendMock}
 
 ### WiFi Backend Architecture
 
@@ -547,10 +507,18 @@ lv_obj_invalidate()              // Public redraw trigger
 - Long-term architecture goals
 - **Update this:** When planning new features or completing major milestones
 
-**[STATUS.md](STATUS.md)** - **DOCUMENTATION GUIDE & KEY DECISIONS**
-- Links to all documentation
-- Major architectural decisions with rationale
-- **NOT a development journal** - use git history for that
+### Documentation Philosophy
+
+**Keep it lean:**
+- HANDOFF.md ≤ 150 lines (prune completed work aggressively)
+- Git commits are the source of truth for "what happened"
+- Patterns go in CLAUDE.md once established
+- Delete documentation when it's no longer relevant
+
+**Trust the tools:**
+- Git history > development journals
+- Code > comments
+- Working examples > abstract explanations
 
 ### Developer Documentation
 
@@ -631,47 +599,10 @@ prototype-ui9/
 
 ## Using Claude Code Agents
 
-This project has specialized agents - use them proactively to keep context smaller and leverage domain expertise.
+**See MANDATORY AGENT DELEGATION POLICY at top of this file.**
 
-### Project-Specific Agents
-
-**widget-maker** - LVGL 9 UI expert
-- Creating/modifying UI panels and components
-- Implementing XML layouts with reactive data binding
-- Working with LVGL 9 XML patterns and subjects
-- **Use when:** Any UI panel or component work
-
-**ui-reviewer** - LVGL 9 UI auditor
-- Analyzing screenshots against requirements
-- Identifying layout/styling issues
-- Providing detailed XML fixes
-- **Use when:** After taking screenshots, auditing existing UI
-
-**moonraker-api-agent** - Klipper/Moonraker integration expert
-- WebSocket communication patterns
-- JSON-RPC protocol implementation
-- Real-time printer state synchronization
-- **Use when:** Implementing Moonraker integration (future work)
-
-### General Agents (see global CLAUDE.md)
-
-**Explore** - Fast codebase exploration
-- "How does X work?"
-- "Where are Y handled?"
-- Architectural pattern discovery
-- **Specify thoroughness:** `quick`, `medium`, or `very thorough`
-
-**general-coding-agent** - C++17/embedded systems expert
-- Multi-file C++ implementations
-- Complex business logic
-- Cross-component features
-
-**refractor** - Code optimization
-- Refactoring existing code
-- Pattern improvements
-- Performance optimization
-
-**When in doubt:** Delegate to an agent. They work independently and report back concisely.
+**Project agents**: `widget-maker` (UI/XML work), `ui-reviewer` (UI auditing), `moonraker-api-agent` (Klipper integration)
+**General agents**: `Explore` (codebase exploration), `general-coding-agent` (multi-file C++), `refractor` (systematic changes 3+ files)
 
 ## Development Workflow
 

@@ -19,3 +19,7 @@
 [submodule "prototype-ui9/wpa_supplicant"]
 	path = prototype-ui9/wpa_supplicant
 	url = git://w1.fi/hostap.git
+[submodule "prototype-ui9/spdlog"]
+	path = prototype-ui9/spdlog
+	url = https://github.com/gabime/spdlog.git
+	branch = fmt-11.2.0

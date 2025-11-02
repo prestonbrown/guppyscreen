@@ -1103,6 +1103,42 @@ int main(int argc, char** argv) {
     spdlog::info("Initializing Moonraker client...");
     MoonrakerClient moonraker_client;
 
+    // Configure timeouts from config file
+    uint32_t connection_timeout = config->get<int>(config->df() + "moonraker_connection_timeout_ms", 10000);
+    uint32_t request_timeout = config->get<int>(config->df() + "moonraker_request_timeout_ms", 30000);
+    uint32_t keepalive_interval = config->get<int>(config->df() + "moonraker_keepalive_interval_ms", 10000);
+    uint32_t reconnect_min_delay = config->get<int>(config->df() + "moonraker_reconnect_min_delay_ms", 200);
+    uint32_t reconnect_max_delay = config->get<int>(config->df() + "moonraker_reconnect_max_delay_ms", 2000);
+    uint32_t timeout_check_interval = config->get<int>(config->df() + "moonraker_timeout_check_interval_ms", 2000);
+
+    moonraker_client.configure_timeouts(connection_timeout, request_timeout, keepalive_interval,
+                                        reconnect_min_delay, reconnect_max_delay);
+
+    spdlog::debug("Moonraker timeouts configured: connection={}ms, request={}ms, keepalive={}ms, check_interval={}ms",
+                  connection_timeout, request_timeout, keepalive_interval, timeout_check_interval);
+
+    // Set up state change callback to automatically update PrinterState
+    moonraker_client.set_state_change_callback(
+        [](ConnectionState old_state, ConnectionState new_state) {
+            const char* messages[] = {
+                "Disconnected",      // DISCONNECTED
+                "Connecting...",     // CONNECTING
+                "Connected",         // CONNECTED
+                "Reconnecting...",   // RECONNECTING
+                "Connection Failed"  // FAILED
+            };
+
+            // Convert enum to integer for subject (0-4)
+            int state_int = static_cast<int>(new_state);
+            printer_state.set_connection_state(state_int, messages[state_int]);
+
+            // Log state transitions
+            spdlog::debug("Connection state changed: {} -> {}",
+                         messages[static_cast<int>(old_state)],
+                         messages[state_int]);
+        }
+    );
+
     // Initialize global keyboard BEFORE wizard (required for textarea registration)
     // NOTE: Keyboard is created early but will appear on top due to being moved to top layer below
     ui_keyboard_init(screen);
@@ -1153,7 +1189,7 @@ int main(int argc, char** argv) {
     int connect_result = moonraker_client.connect(moonraker_url.c_str(),
         [&moonraker_client]() {
             spdlog::info("✓ Connected to Moonraker");
-            printer_state.set_connection_state(2, "Connected");
+            // State change callback will handle updating PrinterState
 
             // Start auto-discovery (must be called AFTER connection is established)
             moonraker_client.discover_printer([]() {
@@ -1162,13 +1198,13 @@ int main(int argc, char** argv) {
         },
         []() {
             spdlog::warn("✗ Disconnected from Moonraker");
-            printer_state.set_connection_state(0, "Disconnected");
+            // State change callback will handle updating PrinterState
         }
     );
 
     if (connect_result != 0) {
         spdlog::error("Failed to initiate Moonraker connection (code {})", connect_result);
-        printer_state.set_connection_state(0, "Disconnected");
+        // State change callback will handle updating PrinterState
     }
 
     // Auto-screenshot timer (configurable delay after UI creation)
@@ -1184,6 +1220,9 @@ int main(int argc, char** argv) {
 
     // Mock printer data timer (tick every second)
     uint32_t last_mock_data_time = SDL_GetTicks();
+
+    // Request timeout check timer (check every 2 seconds)
+    uint32_t last_timeout_check = SDL_GetTicks();
 
     // Main event loop - Let LVGL handle SDL events internally via lv_timer_handler()
     // Loop continues while display exists (exits when window closed)
@@ -1219,6 +1258,12 @@ int main(int argc, char** argv) {
         if (current_time - last_mock_data_time >= 1000) {
             update_mock_printer_data();
             last_mock_data_time = current_time;
+        }
+
+        // Check for request timeouts (using configured interval)
+        if (current_time - last_timeout_check >= timeout_check_interval) {
+            moonraker_client.process_timeouts();
+            last_timeout_check = current_time;
         }
 
         // Process queued Moonraker notifications on main thread (LVGL thread-safety)

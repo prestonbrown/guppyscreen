@@ -97,7 +97,7 @@ public:
   lv_subject_t* get_fan_speed_subject() { return &fan_speed_; }
 
   // Connection state subjects
-  lv_subject_t* get_connection_state_subject() { return &connection_state_; }  // 0=disconnected, 1=connecting, 2=connected
+  lv_subject_t* get_connection_state_subject() { return &connection_state_; }  // 0=disconnected, 1=connecting, 2=connected, 3=reconnecting, 4=failed
   lv_subject_t* get_connection_message_subject() { return &connection_message_; }  // Status message
 
   /**
@@ -106,7 +106,7 @@ public:
    * Updates both connection_state and connection_message subjects.
    * Called by main.cpp WebSocket callbacks.
    *
-   * @param state 0=disconnected, 1=connecting, 2=connected
+   * @param state 0=disconnected, 1=connecting, 2=connected, 3=reconnecting, 4=failed
    * @param message Status message ("Connecting...", "Ready", "Disconnected", etc.)
    */
   void set_connection_state(int state, const char* message);
@@ -135,7 +135,7 @@ private:
   lv_subject_t fan_speed_;
 
   // Connection state subjects
-  lv_subject_t connection_state_;    // Integer: 0=disconnected, 1=connecting, 2=connected
+  lv_subject_t connection_state_;    // Integer: 0=disconnected, 1=connecting, 2=connected, 3=reconnecting, 4=failed
   lv_subject_t connection_message_;  // String buffer
 
   // String buffers for subject storage

@@ -1,38 +1,55 @@
 # Session Handoff Document
 
 **Last Updated:** 2025-11-01
-**Current Focus:** Build warnings eliminated, spdlog upgraded. Next: Wizard screens.
+**Current Focus:** Moonraker API Phase 1 complete. Next: Phase 2 file operations & UI integration.
 
 ---
 
 ## ✅ Recently Completed (Session 2025-11-01)
 
-**Warning Elimination + spdlog Upgrade ✅ COMPLETE**
-- ✅ **Fixed 6 LVGL XML warnings**
-  - `border_side="2"` → `"bottom"` (print_select_panel.xml:110)
-  - Removed invalid `bind_src` on images (2 files - incompatible STRING subject)
-  - Fixed time display: split into `print_elapsed` + `print_remaining` subjects (3 labels)
-  - Fixed percent subject: `print_percent` → `print_progress_text`
-  - Fixed progress bar lookup: `"progress_bar"` → `"print_progress"`
-- ✅ **Separated spdlog submodule** (independent from parent guppyscreen)
-  - Removed symlink to `../spdlog`
-  - Added as real submodule in prototype-ui9 directory
-  - Updated to `fmt-11.2.0` branch (fmt 9.0.1 → 11.2.0)
-- ✅ **Eliminated spdlog/fmt deprecation warnings**
-  - Fixed fmt 11 compatibility: enum casting in ui_panel_print_status.cpp:454
-  - Clean build with zero deprecation warnings
+**Moonraker API Phase 1: Core Infrastructure ✅ COMPLETE**
+- ✅ **Connection State Machine** (5 states with automatic transitions)
+  - `ConnectionState` enum: DISCONNECTED, CONNECTING, CONNECTED, RECONNECTING, FAILED
+  - State change callbacks → PrinterState subjects → UI auto-updates
+  - Reconnection with configurable exponential backoff
+- ✅ **Request Timeout Management**
+  - `PendingRequest` structure tracks all in-flight requests
+  - Per-request or global timeout configuration
+  - Automatic cleanup on disconnect with error callbacks
+- ✅ **Comprehensive Error Handling**
+  - `MoonrakerError` structure with typed errors (TIMEOUT, CONNECTION_LOST, JSON_RPC_ERROR, etc.)
+  - User-friendly error messages
+  - JSON-RPC error parsing and mapping
+- ✅ **Configuration-Driven Design** (no hardcoded timeouts)
+  - All timeouts in `helixconfig.json`: connection, request, keepalive, reconnect delays
+  - Runtime configuration via `MoonrakerClient::configure_timeouts()`
+- ✅ **MoonrakerAPI Facade Layer**
+  - High-level domain operations: files, jobs, motion, temperature, system
+  - Async callbacks with success/error handlers
+  - G-code generation helpers
 
-**Files Modified:**
-- XML: `print_select_panel.xml`, `print_status_panel.xml`, `print_file_detail.xml`
-- C++: `ui_panel_print_status.cpp` (enum cast + widget name)
-- Git: `.gitmodules` (parent), `spdlog/` (symlink → submodule)
+**Files Created/Modified:**
+- New: `moonraker_api.h/cpp`, `moonraker_error.h`, `moonraker_request.h`
+- Modified: `moonraker_client.h/cpp`, `printer_state.h`, `main.cpp`, `helixconfig.json`
 
 ---
 
 ## 🎯 Active Work & Next Priorities
 
-1. **Additional Wizard Screens** (Next)
-   - Moonraker connection, printer identification, hardware selection, summary
+1. **Phase 2: File Management UI Integration** (Next)
+   - Wire up `MoonrakerAPI::list_files()` in print_select_panel
+   - Implement file metadata display in detail view
+   - Add delete confirmation modal
+
+2. **Phase 3: Job Control Integration**
+   - Replace mock print controls with real API calls
+   - Add print state tracking and UI updates
+   - Implement pause/resume/cancel flows
+
+3. **Phase 4: Multi-Extruder Support**
+   - Dynamic heater discovery and subject creation
+   - Temperature panel for multiple extruders
+   - Tool change support
 
 ---
 

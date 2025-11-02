@@ -26,22 +26,58 @@ using namespace hv;
 MoonrakerClient::MoonrakerClient(EventLoopPtr loop)
     : WebSocketClient(loop)
     , request_id_(0)
-    , was_connected_(false) {
+    , was_connected_(false)
+    , connection_state_(ConnectionState::DISCONNECTED)
+    , connection_timeout_ms_(10000)      // Default 10 seconds
+    , default_request_timeout_ms_(30000) // Default 30 seconds
+    , keepalive_interval_ms_(10000)      // Default 10 seconds
+    , reconnect_min_delay_ms_(200)       // Default 200ms
+    , reconnect_max_delay_ms_(2000) {    // Default 2 seconds
 }
 
 MoonrakerClient::~MoonrakerClient() {
+}
+
+void MoonrakerClient::set_connection_state(ConnectionState new_state) {
+  ConnectionState old_state = connection_state_.exchange(new_state);
+
+  if (old_state != new_state) {
+    const char* state_names[] = {"DISCONNECTED", "CONNECTING", "CONNECTED", "RECONNECTING", "FAILED"};
+    spdlog::debug("Connection state: {} -> {}",
+                  state_names[static_cast<int>(old_state)],
+                  state_names[static_cast<int>(new_state)]);
+
+    // Handle state-specific logic
+    if (new_state == ConnectionState::RECONNECTING) {
+      reconnect_attempts_++;
+      if (max_reconnect_attempts_ > 0 && reconnect_attempts_ >= max_reconnect_attempts_) {
+        spdlog::error("Max reconnect attempts ({}) exceeded", max_reconnect_attempts_);
+        set_connection_state(ConnectionState::FAILED);
+        return;
+      }
+    } else if (new_state == ConnectionState::CONNECTED) {
+      reconnect_attempts_ = 0;  // Reset on successful connection
+    }
+
+    // Invoke state change callback if set
+    if (state_change_callback_) {
+      state_change_callback_(old_state, new_state);
+    }
+  }
 }
 
 int MoonrakerClient::connect(const char* url,
                                std::function<void()> on_connected,
                                std::function<void()> on_disconnected) {
   spdlog::debug("Moonraker WebSocket connecting to {}", url);
+  set_connection_state(ConnectionState::CONNECTING);
 
   // Connection opened callback
   onopen = [this, on_connected, url]() {
     const HttpResponsePtr& resp = getHttpResponse();
     spdlog::info("Moonraker WebSocket connected to {}: {}", url, resp->body.c_str());
     was_connected_ = true;
+    set_connection_state(ConnectionState::CONNECTED);
     on_connected();
   };
 
@@ -59,10 +95,27 @@ int MoonrakerClient::connect(const char* url,
     // Handle responses with request IDs (one-time callbacks)
     if (j.contains("id")) {
       uint32_t id = j["id"].get<uint32_t>();
-      auto it = callbacks_.find(id);
-      if (it != callbacks_.end()) {
-        it->second(j);           // Invoke callback
-        callbacks_.erase(it);     // Remove after execution
+
+      std::lock_guard<std::mutex> lock(requests_mutex_);
+      auto it = pending_requests_.find(id);
+      if (it != pending_requests_.end()) {
+        PendingRequest& request = it->second;
+
+        // Check for JSON-RPC error
+        if (j.contains("error")) {
+          MoonrakerError error = MoonrakerError::from_json_rpc(j["error"], request.method);
+          spdlog::error("Request {} failed: {}", request.method, error.message);
+
+          // Invoke error callback if set
+          if (request.error_callback) {
+            request.error_callback(error);
+          }
+        } else {
+          // Success - invoke success callback
+          request.success_callback(j);
+        }
+
+        pending_requests_.erase(it);  // Remove after execution
       }
     }
 
@@ -105,24 +158,40 @@ int MoonrakerClient::connect(const char* url,
 
   // Connection closed callback
   onclose = [this, on_disconnected]() {
+    ConnectionState current = connection_state_.load();
+
+    // Cleanup all pending requests (invoke error callbacks)
+    cleanup_pending_requests();
+
     if (was_connected_) {
       spdlog::warn("Moonraker WebSocket connection closed");
       was_connected_ = false;
+
+      // Check if this is a reconnection scenario
+      if (current != ConnectionState::FAILED) {
+        set_connection_state(ConnectionState::RECONNECTING);
+      }
+
       on_disconnected();
     } else {
       spdlog::debug("Moonraker WebSocket connection failed (printer not available)");
+
+      // Initial connection failed
+      if (current == ConnectionState::CONNECTING) {
+        set_connection_state(ConnectionState::DISCONNECTED);
+      }
       // Don't call on_disconnected() - we were never connected in the first place
     }
   };
 
-  // WebSocket ping (keepalive)
-  setPingInterval(10000);  // 10 seconds
+  // WebSocket ping (keepalive) - use configured interval
+  setPingInterval(keepalive_interval_ms_);
 
-  // Automatic reconnection with exponential backoff
+  // Automatic reconnection with exponential backoff - use configured values
   reconn_setting_t reconn;
   reconn_setting_init(&reconn);
-  reconn.min_delay = 200;     // Start at 200ms
-  reconn.max_delay = 2000;    // Max 2 seconds
+  reconn.min_delay = reconnect_min_delay_ms_;
+  reconn.max_delay = reconnect_max_delay_ms_;
   reconn.delay_policy = 2;    // Exponential backoff
   setReconnect(&reconn);
 
@@ -181,17 +250,39 @@ int MoonrakerClient::send_jsonrpc(const std::string& method, const json& params)
 int MoonrakerClient::send_jsonrpc(const std::string& method,
                                    const json& params,
                                    std::function<void(json&)> cb) {
+  // Forward to new overload with null error callback
+  return send_jsonrpc(method, params, cb, nullptr, 0);
+}
+
+int MoonrakerClient::send_jsonrpc(const std::string& method,
+                                   const json& params,
+                                   std::function<void(json&)> success_cb,
+                                   std::function<void(const MoonrakerError&)> error_cb,
+                                   uint32_t timeout_ms) {
   uint32_t id = request_id_;
 
-  // Register callback for this request ID
-  auto it = callbacks_.find(id);
-  if (it == callbacks_.end()) {
-    callbacks_.insert({id, cb});
-    return send_jsonrpc(method, params);
-  } else {
-    spdlog::warn("Request ID {} already has a registered callback", id);
-    return -1;
+  // Create pending request
+  PendingRequest request;
+  request.id = id;
+  request.method = method;
+  request.success_callback = success_cb;
+  request.error_callback = error_cb;
+  request.timestamp = std::chrono::steady_clock::now();
+  request.timeout_ms = (timeout_ms > 0) ? timeout_ms : default_request_timeout_ms_;
+
+  // Register request
+  {
+    std::lock_guard<std::mutex> lock(requests_mutex_);
+    auto it = pending_requests_.find(id);
+    if (it != pending_requests_.end()) {
+      spdlog::warn("Request ID {} already has a registered callback", id);
+      return -1;
+    }
+    pending_requests_.insert({id, request});
   }
+
+  // Send the request
+  return send_jsonrpc(method, params);
 }
 
 int MoonrakerClient::gcode_script(const std::string& gcode) {
@@ -376,5 +467,51 @@ void MoonrakerClient::parse_objects(const json& objects) {
   }
   if (!leds_.empty()) {
     spdlog::debug("LEDs: {}", json(leds_).dump());
+  }
+}
+
+void MoonrakerClient::check_request_timeouts() {
+  std::lock_guard<std::mutex> lock(requests_mutex_);
+
+  std::vector<uint32_t> timed_out_ids;
+
+  // Find timed out requests
+  for (auto& [id, request] : pending_requests_) {
+    if (request.is_timed_out()) {
+      timed_out_ids.push_back(id);
+
+      spdlog::warn("Request {} ({}) timed out after {}ms",
+                   id, request.method, request.get_elapsed_ms());
+
+      // Invoke error callback if set
+      if (request.error_callback) {
+        MoonrakerError error = MoonrakerError::timeout(request.method, request.timeout_ms);
+        request.error_callback(error);
+      }
+    }
+  }
+
+  // Remove timed out requests
+  for (uint32_t id : timed_out_ids) {
+    pending_requests_.erase(id);
+  }
+}
+
+void MoonrakerClient::cleanup_pending_requests() {
+  std::lock_guard<std::mutex> lock(requests_mutex_);
+
+  if (!pending_requests_.empty()) {
+    spdlog::debug("Cleaning up {} pending requests due to disconnect",
+                  pending_requests_.size());
+
+    // Invoke error callbacks for all pending requests
+    for (auto& [id, request] : pending_requests_) {
+      if (request.error_callback) {
+        MoonrakerError error = MoonrakerError::connection_lost(request.method);
+        request.error_callback(error);
+      }
+    }
+
+    pending_requests_.clear();
   }
 }

@@ -321,7 +321,7 @@
   - [x] Auto-discovery chain (objects.list → server.info → printer.info → subscribe)
   - [x] Object categorization (heaters, sensors, fans, LEDs)
   - [x] Persistent notification callbacks
-  - [ ] Reconnection logic (TODO)
+  - [x] Reconnection logic ✅ COMPLETE (2025-11-01)
 
 - [x] **Configuration System** ✅ COMPLETE (2025-10-26)
   - [x] Config singleton with JSON storage
@@ -329,12 +329,26 @@
   - [x] Multi-printer structure support
   - [x] JSON pointer-based get/set API
 
+- [x] **Moonraker API Phase 1: Core Infrastructure** ✅ COMPLETE (2025-11-01)
+  - [x] Connection state machine (5 states with automatic transitions)
+  - [x] Request timeout management with PendingRequest tracking
+  - [x] Comprehensive error handling (MoonrakerError structure)
+  - [x] Configuration-driven timeouts (all values in helixconfig.json)
+  - [x] MoonrakerAPI facade layer for high-level operations
+  - [x] Automatic cleanup on disconnect with error callbacks
+
 - [~] **Printer State Management** (PARTIAL)
   - [x] PrinterState reactive subjects created
   - [x] Notification callback wired to update_from_notification()
-  - [x] Connection state tracking
+  - [x] Connection state tracking (enhanced with 5-state machine)
   - [ ] Parse and bind all printer objects to subjects
   - [ ] Handle state changes and errors
+
+- [ ] **Moonraker API Phase 2-5** (PLANNED)
+  - [ ] Phase 2: File management (list, metadata, delete, upload)
+  - [ ] Phase 3: Job control (start, pause, resume, cancel)
+  - [ ] Phase 4: Multi-extruder support (dynamic heater discovery)
+  - [ ] Phase 5: System administration (updates, power, monitoring)
 
 - [ ] **File Operations** (FUTURE)
   - [ ] List print files (server.files.list)
@@ -557,15 +571,23 @@ New users need a guided setup wizard to:
 
 **Active Phase:** Phase 8 - Backend Integration **IN PROGRESS**
 
-**Recent Work (2025-10-26 Evening):**
+**Recent Work (2025-11-01):**
 
-**Phase 8 Progress:**
+**Phase 8 - Moonraker API Phase 1 COMPLETE:**
+- ✅ Connection state machine with 5 states (DISCONNECTED, CONNECTING, CONNECTED, RECONNECTING, FAILED)
+- ✅ Request timeout tracking with automatic cleanup
+- ✅ Comprehensive error handling (MoonrakerError structure)
+- ✅ Configuration-driven timeouts (no hardcoded values)
+- ✅ MoonrakerAPI facade with high-level domain operations
+- ✅ Full implementation: file ops, job control, motion, temperature, system
+- ✅ Async callbacks with success/error handlers
+
+**Earlier Work (2025-10-26 Evening):**
 - ✅ Config system with auto-migration and JSON pointer API
 - ✅ MoonrakerClient auto-discovery (objects.list → server.info → printer.info → subscribe)
 - ✅ Intelligent object categorization (heaters, sensors, fans, LEDs)
 - ✅ WebSocket connection on startup with config values
 - ✅ Notification callbacks wired to PrinterState
-- ⚠️ Discovery parsing needs refinement for "not ready" Klipper state
 
 **Earlier Work (2025-10-12 Evening):**
 
@@ -621,4 +643,4 @@ New users need a guided setup wizard to:
 
 ---
 
-**Last Updated:** 2025-10-26
+**Last Updated:** 2025-11-01

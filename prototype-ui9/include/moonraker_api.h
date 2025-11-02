@@ -1,0 +1,342 @@
+/*
+ * Copyright (C) 2025 356C LLC
+ * Author: Preston Brown <pbrown@brown-house.net>
+ *
+ * This file is part of HelixScreen.
+ *
+ * HelixScreen is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * HelixScreen is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with HelixScreen. If not, see <https://www.gnu.org/licenses/>.
+ */
+
+#ifndef MOONRAKER_API_H
+#define MOONRAKER_API_H
+
+#include "moonraker_client.h"
+#include "moonraker_error.h"
+#include "printer_state.h"
+#include <memory>
+#include <functional>
+#include <vector>
+
+/**
+ * @brief File information structure
+ */
+struct FileInfo {
+    std::string filename;
+    std::string path;           // Relative to root
+    uint64_t size = 0;
+    double modified = 0.0;
+    std::string permissions;
+    bool is_dir = false;
+};
+
+/**
+ * @brief File metadata structure (detailed file info)
+ */
+struct FileMetadata {
+    std::string filename;
+    uint64_t size = 0;
+    double modified = 0.0;
+    std::string slicer;
+    std::string slicer_version;
+    double print_start_time = 0.0;
+    double job_id = 0.0;
+    uint32_t layer_count = 0;
+    double object_height = 0.0;     // mm
+    double estimated_time = 0.0;    // seconds
+    double filament_total = 0.0;    // mm
+    double filament_weight_total = 0.0;  // grams
+    double first_layer_bed_temp = 0.0;
+    double first_layer_extr_temp = 0.0;
+    uint64_t gcode_start_byte = 0;
+    uint64_t gcode_end_byte = 0;
+    std::vector<std::string> thumbnails;  // Base64 or paths
+};
+
+/**
+ * @brief High-level Moonraker API facade
+ *
+ * Provides simplified, domain-specific operations on top of MoonrakerClient.
+ * All methods are asynchronous with success/error callbacks.
+ */
+class MoonrakerAPI {
+public:
+    using SuccessCallback = std::function<void()>;
+    using ErrorCallback = std::function<void(const MoonrakerError&)>;
+    using FileListCallback = std::function<void(const std::vector<FileInfo>&)>;
+    using FileMetadataCallback = std::function<void(const FileMetadata&)>;
+    using BoolCallback = std::function<void(bool)>;
+    using StringCallback = std::function<void(const std::string&)>;
+
+    /**
+     * @brief Constructor
+     *
+     * @param client MoonrakerClient instance (must remain valid during API lifetime)
+     * @param state PrinterState instance (must remain valid during API lifetime)
+     */
+    MoonrakerAPI(MoonrakerClient& client, PrinterState& state);
+    ~MoonrakerAPI() = default;
+
+    // ========================================================================
+    // File Management Operations
+    // ========================================================================
+
+    /**
+     * @brief List files in a directory
+     *
+     * @param root Root directory ("gcodes", "config", "timelapse")
+     * @param path Subdirectory path (empty for root)
+     * @param recursive Include subdirectories
+     * @param on_success Callback with file list
+     * @param on_error Error callback
+     */
+    void list_files(const std::string& root,
+                    const std::string& path,
+                    bool recursive,
+                    FileListCallback on_success,
+                    ErrorCallback on_error);
+
+    /**
+     * @brief Get detailed metadata for a file
+     *
+     * @param filename Full path to file (relative to gcodes root)
+     * @param on_success Callback with metadata
+     * @param on_error Error callback
+     */
+    void get_file_metadata(const std::string& filename,
+                          FileMetadataCallback on_success,
+                          ErrorCallback on_error);
+
+    /**
+     * @brief Delete a file
+     *
+     * @param filename Full path to file (relative to gcodes root)
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void delete_file(const std::string& filename,
+                    SuccessCallback on_success,
+                    ErrorCallback on_error);
+
+    // ========================================================================
+    // Job Control Operations
+    // ========================================================================
+
+    /**
+     * @brief Start printing a file
+     *
+     * @param filename Full path to G-code file
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void start_print(const std::string& filename,
+                    SuccessCallback on_success,
+                    ErrorCallback on_error);
+
+    /**
+     * @brief Pause the current print
+     *
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void pause_print(SuccessCallback on_success,
+                    ErrorCallback on_error);
+
+    /**
+     * @brief Resume a paused print
+     *
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void resume_print(SuccessCallback on_success,
+                     ErrorCallback on_error);
+
+    /**
+     * @brief Cancel the current print
+     *
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void cancel_print(SuccessCallback on_success,
+                     ErrorCallback on_error);
+
+    // ========================================================================
+    // Motion Control Operations
+    // ========================================================================
+
+    /**
+     * @brief Home one or more axes
+     *
+     * @param axes Axes to home (e.g., "XY", "Z", "XYZ", empty for all)
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void home_axes(const std::string& axes,
+                  SuccessCallback on_success,
+                  ErrorCallback on_error);
+
+    /**
+     * @brief Move an axis by a relative amount
+     *
+     * @param axis Axis name ('X', 'Y', 'Z', 'E')
+     * @param distance Distance to move in mm
+     * @param feedrate Movement speed in mm/min (0 for default)
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void move_axis(char axis,
+                  double distance,
+                  double feedrate,
+                  SuccessCallback on_success,
+                  ErrorCallback on_error);
+
+    /**
+     * @brief Set absolute position for an axis
+     *
+     * @param axis Axis name ('X', 'Y', 'Z')
+     * @param position Absolute position in mm
+     * @param feedrate Movement speed in mm/min (0 for default)
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void move_to_position(char axis,
+                         double position,
+                         double feedrate,
+                         SuccessCallback on_success,
+                         ErrorCallback on_error);
+
+    // ========================================================================
+    // Temperature Control Operations
+    // ========================================================================
+
+    /**
+     * @brief Set target temperature for a heater
+     *
+     * @param heater Heater name ("extruder", "heater_bed", etc.)
+     * @param temperature Target temperature in Celsius
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void set_temperature(const std::string& heater,
+                        double temperature,
+                        SuccessCallback on_success,
+                        ErrorCallback on_error);
+
+    /**
+     * @brief Set fan speed
+     *
+     * @param fan Fan name ("fan", "fan_generic cooling_fan", etc.)
+     * @param speed Speed percentage (0-100)
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void set_fan_speed(const std::string& fan,
+                      double speed,
+                      SuccessCallback on_success,
+                      ErrorCallback on_error);
+
+    // ========================================================================
+    // System Control Operations
+    // ========================================================================
+
+    /**
+     * @brief Execute custom G-code command
+     *
+     * @param gcode G-code command string
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void execute_gcode(const std::string& gcode,
+                      SuccessCallback on_success,
+                      ErrorCallback on_error);
+
+    /**
+     * @brief Emergency stop
+     *
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void emergency_stop(SuccessCallback on_success,
+                       ErrorCallback on_error);
+
+    /**
+     * @brief Restart Klipper firmware
+     *
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void restart_firmware(SuccessCallback on_success,
+                         ErrorCallback on_error);
+
+    /**
+     * @brief Restart Klipper host process
+     *
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void restart_klipper(SuccessCallback on_success,
+                        ErrorCallback on_error);
+
+    // ========================================================================
+    // Query Operations
+    // ========================================================================
+
+    /**
+     * @brief Query if printer is ready for commands
+     *
+     * @param on_result Callback with ready state
+     * @param on_error Error callback
+     */
+    void is_printer_ready(BoolCallback on_result,
+                         ErrorCallback on_error);
+
+    /**
+     * @brief Get current print state
+     *
+     * @param on_result Callback with state ("standby", "printing", "paused", "complete", "error")
+     * @param on_error Error callback
+     */
+    void get_print_state(StringCallback on_result,
+                        ErrorCallback on_error);
+
+private:
+    MoonrakerClient& client_;
+    PrinterState& state_;
+
+    /**
+     * @brief Parse file list response from server.files.list
+     */
+    std::vector<FileInfo> parse_file_list(const json& response);
+
+    /**
+     * @brief Parse metadata response from server.files.metadata
+     */
+    FileMetadata parse_file_metadata(const json& response);
+
+    /**
+     * @brief Generate G-code for homing axes
+     */
+    std::string generate_home_gcode(const std::string& axes);
+
+    /**
+     * @brief Generate G-code for relative movement
+     */
+    std::string generate_move_gcode(char axis, double distance, double feedrate);
+
+    /**
+     * @brief Generate G-code for absolute movement
+     */
+    std::string generate_absolute_move_gcode(char axis, double position, double feedrate);
+};
+
+#endif // MOONRAKER_API_H

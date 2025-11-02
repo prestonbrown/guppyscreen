@@ -25,14 +25,28 @@
 #include "hv/WebSocketClient.h"
 #include "hv/json.hpp"  // libhv's nlohmann json (via cpputil/)
 #include "spdlog/spdlog.h"
+#include "moonraker_request.h"
+#include "moonraker_error.h"
 
 #include <map>
 #include <vector>
 #include <atomic>
 #include <functional>
 #include <string>
+#include <mutex>
 
 using json = nlohmann::json;
+
+/**
+ * @brief Connection state for Moonraker WebSocket
+ */
+enum class ConnectionState {
+  DISCONNECTED,  // Not connected
+  CONNECTING,    // Connection in progress
+  CONNECTED,     // Connected and ready
+  RECONNECTING,  // Automatic reconnection in progress
+  FAILED         // Connection failed (max retries exceeded)
+};
 
 /**
  * @brief WebSocket client for Moonraker API communication
@@ -113,6 +127,22 @@ public:
                    std::function<void(json&)> cb);
 
   /**
+   * @brief Send JSON-RPC request with success and error callbacks
+   *
+   * @param method RPC method name
+   * @param params JSON parameters object
+   * @param success_cb Callback for successful response
+   * @param error_cb Callback for errors (timeout, JSON-RPC error, etc.)
+   * @param timeout_ms Optional timeout override (0 = use default)
+   * @return 0 on success, non-zero on error
+   */
+  int send_jsonrpc(const std::string& method,
+                   const json& params,
+                   std::function<void(json&)> success_cb,
+                   std::function<void(const MoonrakerError&)> error_cb,
+                   uint32_t timeout_ms = 0);
+
+  /**
    * @brief Send G-code script command
    *
    * Convenience wrapper for printer.gcode.script method.
@@ -156,9 +186,87 @@ public:
    */
   const std::vector<std::string>& get_fans() const { return fans_; }
 
+  /**
+   * @brief Get current connection state
+   */
+  ConnectionState get_connection_state() const { return connection_state_; }
+
+  /**
+   * @brief Set callback for connection state changes
+   *
+   * @param cb Callback invoked when state changes (old_state, new_state)
+   */
+  void set_state_change_callback(std::function<void(ConnectionState, ConnectionState)> cb) {
+    state_change_callback_ = cb;
+  }
+
+  /**
+   * @brief Set connection timeout in milliseconds
+   *
+   * @param timeout_ms Connection timeout (default 10000ms)
+   */
+  void set_connection_timeout(uint32_t timeout_ms) { connection_timeout_ms_ = timeout_ms; }
+
+  /**
+   * @brief Set default request timeout in milliseconds
+   *
+   * @param timeout_ms Request timeout
+   */
+  void set_default_request_timeout(uint32_t timeout_ms) { default_request_timeout_ms_ = timeout_ms; }
+
+  /**
+   * @brief Configure timeout and reconnection parameters
+   *
+   * Sets all timeout and reconnection parameters from config values.
+   *
+   * @param connection_timeout_ms Connection timeout in milliseconds
+   * @param request_timeout_ms Default request timeout in milliseconds
+   * @param keepalive_interval_ms WebSocket keepalive ping interval
+   * @param reconnect_min_delay_ms Minimum reconnection delay
+   * @param reconnect_max_delay_ms Maximum reconnection delay
+   */
+  void configure_timeouts(uint32_t connection_timeout_ms,
+                          uint32_t request_timeout_ms,
+                          uint32_t keepalive_interval_ms,
+                          uint32_t reconnect_min_delay_ms,
+                          uint32_t reconnect_max_delay_ms) {
+    connection_timeout_ms_ = connection_timeout_ms;
+    default_request_timeout_ms_ = request_timeout_ms;
+    keepalive_interval_ms_ = keepalive_interval_ms;
+    reconnect_min_delay_ms_ = reconnect_min_delay_ms;
+    reconnect_max_delay_ms_ = reconnect_max_delay_ms;
+  }
+
+  /**
+   * @brief Process timeout checks for pending requests
+   *
+   * Should be called periodically (e.g., from main loop) to check for timed out requests.
+   * Typically called every 1-5 seconds.
+   */
+  void process_timeouts() { check_request_timeouts(); }
+
 private:
-  // One-time callbacks keyed by request ID
-  std::map<uint32_t, std::function<void(json&)>> callbacks_;
+  /**
+   * @brief Transition to new connection state
+   *
+   * @param new_state The new state to transition to
+   */
+  void set_connection_state(ConnectionState new_state);
+
+  /**
+   * @brief Check for timed out requests and invoke error callbacks
+   */
+  void check_request_timeouts();
+
+  /**
+   * @brief Cleanup all pending requests (called on disconnect)
+   */
+  void cleanup_pending_requests();
+
+private:
+  // Pending requests keyed by request ID
+  std::map<uint32_t, PendingRequest> pending_requests_;
+  std::mutex requests_mutex_;  // Protect pending_requests_ map
 
   // Persistent notify_status_update callbacks
   std::vector<std::function<void(json&)>> notify_callbacks_;
@@ -172,6 +280,19 @@ private:
 
   // Connection state tracking
   std::atomic_bool was_connected_;
+  std::atomic<ConnectionState> connection_state_;
+  std::function<void(ConnectionState, ConnectionState)> state_change_callback_;
+  uint32_t connection_timeout_ms_;
+  uint32_t reconnect_attempts_ = 0;
+  uint32_t max_reconnect_attempts_ = 0;  // 0 = infinite
+
+  // Request timeout tracking
+  uint32_t default_request_timeout_ms_;
+
+  // Connection parameters (from config)
+  uint32_t keepalive_interval_ms_;
+  uint32_t reconnect_min_delay_ms_;
+  uint32_t reconnect_max_delay_ms_;
 
   // Auto-discovered printer objects
   std::vector<std::string> heaters_;   // Controllable heaters (extruders, bed, etc.)

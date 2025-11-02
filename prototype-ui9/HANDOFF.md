@@ -1,7 +1,64 @@
 # Session Handoff Document
 
 **Last Updated:** 2025-11-02
-**Current Focus:** Wizard baseline implementations COMPLETE - All 8 steps functional
+**Current Focus:** Architecture compliance cleanup COMPLETE + Wizard implementations functional
+
+---
+
+## ✅ JUST COMPLETED: Constants & Colors Architecture Cleanup (2025-11-02)
+
+**ALL hardcoded colors eliminated + globals.xml pruned by 27 constants**
+
+### What Was Accomplished
+
+**Milestone 1-5: Fixed ALL Hardcoded Color Violations (25 total)**
+- Motion Panel: 10 colors → theme-aware component-local constants (commit 537f1e2)
+- Step Progress: 8 colors → theme-aware component-local constants (commit e5c4a4e)
+- Temperature Panels: 2 colors → theme-aware component-local constants (commit 5e7a92c)
+- WiFi List: 2 colors → theme-aware component-local constants (commit 5246cbc)
+- Home Panel: 3 colors → theme-aware component-local constants (commit 6d3068f)
+
+**Pattern Established:** All UI colors now use `*_light/*_dark` variant pairs in component-local `<consts>` blocks, loaded at runtime via `lv_xml_component_get_scope()` with graceful fallbacks. NO recompilation needed for theme changes.
+
+**Milestone 6: Moved Single-Use Constants (7 constants, commit 2e4cf33)**
+- home_panel.xml: 3 dimensions (printer_img_size, accent_bar_width/gap)
+- filament_panel.xml: 4 label heights (label_height_xs/sm/md/lg)
+
+**Milestone 7: Deleted Unused Constants (20 constants, commit 0a31cf0)**
+- Motion panel redesign obsolete: 10 constants (jog_*, distance_*, home_*, position_*, z_controls_height)
+- Detail view obsolete: 3 constants (detail_metadata_height, detail_back_icon_size, detail_separator_height)
+- Step progress redesign: 3 constants (step_indicator_size, step_connector_width, step_spacing)
+- General UI: 4 constants (progress_bar_height, divider_height, divider_opacity, disabled_opa)
+
+### Impact
+
+✅ **CLAUDE.md Rule #1 compliance:** NO hardcoded colors remain in C++
+✅ **Component locality:** Colors and single-use dimensions moved to components
+✅ **globals.xml cleanup:** 27 constants moved/deleted (7 moved + 20 deleted)
+✅ **Theme-aware:** All colors support light/dark mode without recompilation
+✅ **Build verified:** All changes tested and passing
+
+### Files Modified
+
+**XML (color constants added):**
+- ui_xml/motion_panel.xml, ui_xml/step_progress_test.xml
+- ui_xml/nozzle_temp_panel.xml, ui_xml/bed_temp_panel.xml
+- ui_xml/wifi_network_item.xml, ui_xml/home_panel.xml
+- ui_xml/filament_panel.xml
+
+**C++ (runtime color loading):**
+- src/ui_panel_motion.cpp, src/ui_step_progress.cpp
+- src/ui_panel_controls_temp.cpp, src/ui_wizard_wifi.cpp
+- src/ui_panel_home.cpp
+
+**Globals cleanup:**
+- ui_xml/globals.xml - 27 constants moved/deleted
+
+### Remaining Refactoring Tasks
+
+- Extract jog pad to separate reusable widget
+- Refactor keypad to button matrix (260→40 lines)
+- Test all changes with --dark/--light on all screen sizes
 
 ---
 

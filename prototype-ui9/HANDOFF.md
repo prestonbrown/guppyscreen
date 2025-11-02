@@ -1,251 +1,177 @@
 # Session Handoff Document
 
-**Last Updated:** 2025-11-01
-**Current Focus:** Test mode infrastructure complete. Next: Update backend factories to respect TestConfig (NO automatic mock fallbacks).
+**Last Updated:** 2025-11-02
+**Current Focus:** Multiple tracks - Wizard implementation (other session), Print Select real file ops (JUST COMPLETED)
 
 ---
 
-## ✅ Recently Completed (Session 2025-11-01)
+## ✅ JUST COMPLETED: Real File Operations Integration (2025-11-02)
 
-**Test Mode Infrastructure ✅ COMPLETE**
-- ✅ **TestConfig System** with `--test` flag and selective `--real-*` overrides
-  - Master `--test` flag enables test mode (all mocks by default)
-  - Selective overrides: `--real-wifi`, `--real-ethernet`, `--real-moonraker`, `--real-files`
-  - Production safety: NO mocks ever used without explicit `--test` flag
-  - Visual feedback: Banner shows what's real vs mocked in test mode
-- ✅ **Full CRUD File Operations** in MoonrakerAPI
-  - Added: `move_file()`, `copy_file()`, `create_directory()`, `delete_directory()`
-  - All operations use async callbacks with error handling
-- ✅ **Print Select Panel Integration**
-  - Wired up real file deletion with confirmation dialog
-  - Connected print button to start real prints via Moonraker
-  - File list refreshes from Moonraker with fallback to test data ONLY in test mode
-  - Fixed `MoonrakerError::get_type_string()` method
-- ✅ **Comprehensive Test Coverage**
-  - Full unit tests for TestConfig with all scenarios
-  - Command-line validation tests
-  - Production safety verification
+**Print Select Panel now fetches real data from Moonraker**
 
-**Files Created:**
-- New: `test_config.h`, `test_test_config.cpp` (unit tests)
-- Modified: `main.cpp`, `moonraker_api.h/cpp`, `moonraker_error.h`, `ui_panel_print_select.cpp`
+**What Works:**
+- `ui_panel_print_select_refresh_files()` fetches real file list via `MoonrakerAPI::list_files()`
+- Nested async metadata fetching for each file via `get_file_metadata()`
+- Extracts print time (seconds → minutes) and filament weight (grams)
+- Cards/list rows update automatically as metadata arrives
+- Thumbnail URL construction (`construct_thumbnail_url()`) - logs URLs, download deferred
 
----
+**Files Modified:**
+- `src/ui_panel_print_select.cpp` - Added config.h include, construct_thumbnail_url() helper, enhanced refresh_files() with nested callbacks
 
-## 🎯 Active Work & Next Priorities
+**Edge Cases Handled:**
+- Bounds checking (file_list changes during async ops)
+- Missing metadata → keeps placeholders (0 min, 0g)
+- Error callbacks log warnings without crashing
+- Empty file lists → shows existing empty state UI
 
-1. **Update Backend Factories for Test Mode** (CRITICAL - Next Session)
-   - WiFi backend factory: Remove automatic mock fallback, respect TestConfig
-   - Ethernet backend factory: Remove automatic mock fallback, respect TestConfig
-   - Managers must handle nullptr backends gracefully in production
-   - NEVER fall back to mocks without explicit `--test` flag
+**What's Deferred:**
+- Actual HTTP thumbnail downloads (URL construction works, marked TODO)
+- Would need: libhv HttpClient integration, temp directory, file cleanup
 
-2. **Fix Moonraker Connection for Test Mode**
-   - Respect `--real-moonraker` flag in test mode
-   - Mock Moonraker responses when `should_mock_moonraker()` is true
-   - Proper error handling in production when connection fails
+**Testing:**
+- ✅ Builds cleanly (zero warnings)
+- ✅ Mock mode (`--test`) still works with test data
+- ⏳ Real Moonraker test requires live printer (code ready)
 
-3. **Add Visual Test Mode Indicators**
-   - Add "TEST MODE" badge/watermark to UI
-   - Show which components are mocked vs real
-   - Different color theme or border for test mode
-   - Status in window title
+**Key Pattern - Async Metadata Loading:**
+```cpp
+api->list_files("gcodes", "", false, [api](const std::vector<FileInfo>& files) {
+    // Show files immediately with placeholders
+    for (const auto& file : files) { /* add to file_list */ }
+    populate_card_view();
 
-4. **Phase 2: File Metadata & Thumbnails**
-   - Fetch and display file metadata (print time, filament from G-code)
-   - Extract and display thumbnails from G-code files
-   - Add refresh button to file list UI
-
-5. **Phase 3: Job Control Integration**
-   - Real-time print progress updates from Moonraker
-   - Implement pause/resume/cancel with proper state management
-   - Handle printer state transitions properly
+    // Fetch metadata asynchronously
+    for (size_t i = 0; i < file_list.size(); i++) {
+        api->get_file_metadata(filename, [i, filename](const FileMetadata& m) {
+            // Bounds check, update file_list[i], re-render
+        });
+    }
+});
+```
 
 ---
 
-## 📋 Critical Architecture Patterns
+## 🧙 Active Work: First-Run Configuration Wizard (IN PROGRESS)
 
-### Pattern #0: Flex Layout Height Requirements
+### What's Working ✅
 
-**When using `flex_grow` on children, parent MUST have explicit height:**
+**Wizard Framework Infrastructure**
+- Subject-based navigation (current_step, total_steps, wizard_title, wizard_progress)
+- Responsive constants system (SMALL ≤480, MEDIUM 481-800, LARGE >800px)
+- Back/Next navigation with automatic "Finish" button on last step
+- Parent-defined constants pattern (wizard_container → child screens)
+- Theme-aware background colors
+- Test infrastructure (wizard_validation.h/cpp with IP/hostname validation)
 
+**Step 1: WiFi Setup ✅ FULLY IMPLEMENTED**
+- WiFi toggle with immediate placeholder hide/show
+- Network scanning with 3-second delay after enable
+- Network list population (signal strength icons + encryption indicators)
+- Connected network highlighting with accent color
+- Click-to-connect with password modal
+- Responsive layout for all screen sizes
+- Backend integration with WiFiManager (mock + real)
+
+### What Exists But NOT Wired ⚠️
+
+**8 XML Screens Created:**
+1. ✅ wizard_wifi_setup.xml (working)
+2. ⚠️ wizard_connection.xml (exists, not wired - Moonraker IP/port)
+3. ⚠️ wizard_printer_identify.xml (exists, not wired - printer type/name)
+4. ⚠️ wizard_bed_select.xml (exists, not wired - bed heater/sensor dropdowns)
+5. ⚠️ wizard_hotend_select.xml (exists, not wired - extruder dropdowns)
+6. ⚠️ wizard_fan_select.xml (exists, not wired - fan assignments)
+7. ⚠️ wizard_led_select.xml (exists, not wired - LED assignments)
+8. ⚠️ wizard_summary.xml (exists, not wired - review selections)
+
+**C++ Implementation Gaps** (ui_wizard.cpp:305-338):
+- Steps 2-7 show "not yet implemented" placeholders
+- total_steps = 7 but 8 XML screens exist (mismatch to resolve)
+- Only WiFi screen has content creation function (ui_wizard_wifi_create())
+
+### Next Session (Tomorrow Morning) 🌅
+
+1. **Wire Step 2: Moonraker Connection**
+   - Connection test with spinner + status feedback
+   - IP address entry (numeric keypad)
+   - Save to config on success
+   - Trigger auto-discovery
+
+2. **Resolve step count mismatch** (7 vs 8 screens)
+
+3. **Wire Step 3: Printer Identify**
+   - Roller widget for printer type (32 options)
+   - Text input for printer name
+   - Auto-populate from discovery
+
+**Key Files:**
+- `src/ui_wizard.cpp` - Navigation (WiFi only, rest TODOs)
+- `src/ui_wizard_wifi.cpp` - WiFi screen implementation
+- `ui_xml/wizard_*.xml` - 8 screens (1 working, 7 waiting)
+- `include/wizard_validation.h` - IP/hostname/port helpers
+
+---
+
+## 📋 Critical Patterns for Wizard Work
+
+### Pattern #1: Flex Layout Height Requirements ⚠️
+
+**flex_grow children require parent with explicit height:**
 ```xml
-<!-- BROKEN: Parent has no height -->
+<!-- ❌ BROKEN: Parent has no height -->
 <lv_obj flex_flow="row">
-    <lv_obj flex_grow="3">Left (30%)</lv_obj>
-    <lv_obj flex_grow="7">Right (70%)</lv_obj>
+    <lv_obj flex_grow="3">Left</lv_obj>
+    <lv_obj flex_grow="7">Right</lv_obj>
 </lv_obj>
-<!-- Result: Columns collapse to 0 height -->
 
-<!-- CORRECT: Two-column pattern (30/70 split) -->
-<view height="100%" flex_flow="column">
-    <lv_obj width="100%" flex_grow="1" flex_flow="column">
-        <lv_obj width="100%" flex_grow="1" flex_flow="row">
-            <!-- BOTH columns MUST have height="100%" -->
-            <lv_obj flex_grow="3" height="100%"
-                    flex_flow="column" scrollable="true" scroll_dir="VER">
-                <lv_obj height="100">Card 1</lv_obj>
-                <lv_obj height="100">Card 2</lv_obj>
-            </lv_obj>
-            <lv_obj flex_grow="7" height="100%"
-                    scrollable="true" scroll_dir="VER">
-                <!-- Content -->
-            </lv_obj>
-        </lv_obj>
-    </lv_obj>
-</view>
+<!-- ✅ CORRECT: Parent has height, columns have height="100%" -->
+<lv_obj height="100%" flex_flow="row">
+    <lv_obj flex_grow="3" height="100%">Left</lv_obj>
+    <lv_obj flex_grow="7" height="100%">Right</lv_obj>
+</lv_obj>
 ```
+**Fix:** Add `style_bg_color="#ff0000"` to visualize bounds. See `docs/LVGL9_XML_GUIDE.md:634-716`
 
-**Critical Checks:**
-1. Parent has explicit height (`height="300"`, `height="100%"`, or `flex_grow="1"`)
-2. ALL columns have `height="100%"` (row height = tallest child)
-3. Every level has sizing (wrapper → row → columns)
-4. Cards use fixed heights (`height="100"`), NOT `LV_SIZE_CONTENT` in nested flex
+### Pattern #2: Runtime Constants (Responsive + Theme) ⚠️
 
-**Diagnostic:** Add `style_bg_color="#ff0000"` to visualize bounds
-
-**Reference:** `docs/LVGL9_XML_GUIDE.md:634-716`, `.claude/agents/widget-maker.md:107-149`, `.claude/agents/ui-reviewer.md:101-152`
-
-### Pattern #1: Runtime Constants for Responsive Design & Theming
-
-**Use case:** Single XML template that adapts to different screen sizes or theme preferences
-
-**Example 1: Responsive dimensions**
+**Wizard uses heavily for screen size adaptation:**
 ```cpp
-// C++ - Detect screen size and override constants BEFORE creating XML
+// Detect size, override constants BEFORE creating XML
 int width = lv_display_get_horizontal_resolution(lv_display_get_default());
-lv_xml_component_scope_t* scope = lv_xml_component_get_scope("globals");
+lv_xml_component_scope_t* scope = lv_xml_component_get_scope("wizard_container");
 
-if (width < 600) {  // TINY
+if (width < 600) {
     lv_xml_register_const(scope, "wizard_padding", "6");
-    lv_xml_register_const(scope, "wizard_gap", "4");
-} else if (width < 900) {  // SMALL
-    lv_xml_register_const(scope, "wizard_padding", "12");
-    lv_xml_register_const(scope, "wizard_gap", "8");
-} else {  // LARGE
+} else {
     lv_xml_register_const(scope, "wizard_padding", "20");
-    lv_xml_register_const(scope, "wizard_gap", "12");
 }
-
-// XML - Uses runtime-modified constants
-<lv_obj style_pad_all="#wizard_padding" style_pad_column="#wizard_gap">
 ```
+**See:** `ui_wizard.cpp:90-203` for complete wizard responsive pattern
 
-**Example 2: Theme colors (light/dark mode)**
-```cpp
-// globals.xml - Define light/dark variants (NO hardcoded colors in C++)
-<color name="app_bg_color_light" value="#F0F3F9"/>
-<color name="app_bg_color_dark" value="#1F1F1F"/>
+### Pattern #3: Subject Initialization Order ⚠️
 
-// C++ - Read from XML and override runtime constant
-lv_xml_component_scope_t* scope = lv_xml_component_get_scope("globals");
-const char* bg_light = lv_xml_get_const(NULL, "app_bg_color_light");
-const char* bg_dark = lv_xml_get_const(NULL, "app_bg_color_dark");
-lv_xml_register_const(scope, "app_bg_color", use_dark ? bg_dark : bg_light);
-
-// Or read variant directly without override
-const char* bg = use_dark ? lv_xml_get_const(NULL, "app_bg_color_dark")
-                          : lv_xml_get_const(NULL, "app_bg_color_light");
-```
-
-**Why:** One XML template adapts to any screen size/theme without duplication or C++ layout manipulation
-
-**Files:** `ui_wizard.cpp:71-124`, `ui_theme.cpp:46-80`, `main.cpp:698-709`, `globals.xml:148-164`
-
-### Pattern #2: Navigation History Stack
-
-**When to use:** Overlay panels (motion, temps, extrusion, keypad)
-
-```cpp
-ui_nav_push_overlay(motion_panel);  // Shows overlay, saves history
-if (!ui_nav_go_back()) { /* fallback */ }
-```
-
-**Files:** `ui_nav.h:54-62`, `ui_nav.cpp:250-327`
-
-### Pattern #3: Subject Initialization Order
-
-**MUST initialize subjects BEFORE creating XML:**
-
+**Always init subjects BEFORE creating XML:**
 ```cpp
 lv_xml_register_component_from_file("A:/ui_xml/my_panel.xml");
 ui_my_panel_init_subjects();  // FIRST
 lv_xml_create(screen, "my_panel", NULL);  // AFTER
 ```
 
-### Pattern #4: Test Mode Configuration ⚠️ CRITICAL
+### Pattern #4: Test Mode ⚠️
 
-**NEVER use mocks in production. Always check TestConfig:**
-
+**Wizard will use test mode - never auto-fallback to mocks:**
 ```cpp
-// Backend factory example - CORRECT pattern
-std::unique_ptr<WifiBackend> WifiBackend::create() {
-    const auto& config = get_test_config();
-
-    if (config.should_mock_wifi()) {
-        spdlog::info("[TEST MODE] Using MOCK WiFi backend");
-        return std::make_unique<WifiBackendMock>();
-    }
-
-    // Production: Try real backend, FAIL if unavailable
-    auto backend = std::make_unique<WifiBackendMacOS>();
-    if (!backend->start()) {
-        spdlog::error("WiFi initialization failed");
-        return nullptr;  // Return nullptr, NO FALLBACK
-    }
-
-    return backend;
+if (config.should_mock_wifi()) {
+    return std::make_unique<WifiBackendMock>();
 }
-
-// UI code example - Handle test mode properly
-if (config.should_use_test_files()) {
-    spdlog::info("[TEST MODE] Using test file data");
-    populate_test_data();
-} else if (!api) {
-    show_error_screen("Printer not connected");  // NO test data in production!
-}
+// Production: return nullptr if hardware fails, NO fallback
 ```
-
-**Command-line usage:**
-- `./helix-ui-proto` - Production mode (no mocks ever)
-- `./helix-ui-proto --test` - Full test mode (all mocks)
-- `./helix-ui-proto --test --real-moonraker` - Test UI with real printer
-- `./helix-ui-proto --test --real-wifi --real-files` - Mixed mode
-
-**Files:** `test_config.h`, `main.cpp:319-439`
-
-### Pattern #5: Thread-Safety with lv_async_call() ⚠️ CRITICAL
-
-**LVGL is NOT thread-safe.** Backend threads (WiFi, networking, file I/O) cannot create/modify widgets directly.
-
-**Solution:** Use `lv_async_call()` to dispatch UI updates to main thread
-
-**See ARCHITECTURE.md "Thread Safety" section for:**
-- Complete code example with CallbackData struct pattern
-- When to use vs. when subjects are sufficient
-- Memory management best practices
-- Reference implementation in `src/wifi_manager.cpp:102-190`
-
-**Quick rule:** If backend callback needs to call ANY `lv_obj_*()` function, wrap it in `lv_async_call()`
+**See:** `test_config.h` for complete API
 
 ---
 
 ## 🔧 Known Issues & Gotchas
-
-### Backend Factories Need Test Mode Update ⚠️ CRITICAL
-
-**Issue:** WiFi and Ethernet backend factories currently have automatic mock fallback in production
-
-**Current (WRONG):**
-```cpp
-if (!backend->start()) {
-    // Automatically falls back to mock - BAD!
-    return std::make_unique<WifiBackendMock>();
-}
-```
-
-**Required Fix:** Check TestConfig and return nullptr in production
-**Files:** `src/wifi_backend.cpp`, `src/ethernet_backend.cpp`
 
 ### LVGL 9 XML Roller Options
 

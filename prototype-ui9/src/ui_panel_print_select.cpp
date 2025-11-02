@@ -27,6 +27,7 @@
 #include "ui_modal.h"
 #include "app_globals.h"
 #include "moonraker_api.h"
+#include "config.h"
 #include "lvgl/src/others/xml/lv_xml.h"
 #include <spdlog/spdlog.h>
 #include <string>
@@ -36,6 +37,38 @@
 
 // Default placeholder thumbnail for print files
 static const char* DEFAULT_PLACEHOLDER_THUMB = "A:assets/images/thumbnail-placeholder.png";
+
+// ============================================================================
+// Thumbnail helper functions
+// ============================================================================
+
+/**
+ * @brief Construct Moonraker HTTP URL for thumbnail
+ *
+ * @param relative_path Relative path from metadata (e.g., ".thumbs/...")
+ * @return Full HTTP URL or empty string on error
+ */
+static std::string construct_thumbnail_url(const std::string& relative_path) {
+    Config* config = Config::get_instance();
+    if (!config) {
+        spdlog::error("Cannot construct thumbnail URL: Config not available");
+        return "";
+    }
+
+    try {
+        std::string host = config->get<std::string>(config->df() + "moonraker_host");
+        int port = config->get<int>(config->df() + "moonraker_port");
+
+        // Build URL: http://host:port/server/files/gcodes/{relative_path}
+        std::string url = "http://" + host + ":" + std::to_string(port) +
+                         "/server/files/gcodes/" + relative_path;
+
+        return url;
+    } catch (const std::exception& e) {
+        spdlog::error("Failed to construct thumbnail URL: {}", e.what());
+        return "";
+    }
+}
 
 // ============================================================================
 // File data structure
@@ -468,13 +501,13 @@ void ui_panel_print_select_refresh_files() {
     // Request file list from gcodes directory (non-recursive for now)
     api->list_files("gcodes", "", false,
         // Success callback
-        [](const std::vector<FileInfo>& files) {
+        [api](const std::vector<FileInfo>& files) {
             spdlog::info("Received {} files from Moonraker", files.size());
 
             // Clear existing file list
             file_list.clear();
 
-            // Convert FileInfo to PrintFileData
+            // Convert FileInfo to PrintFileData (with placeholder values initially)
             for (const auto& file : files) {
                 // Skip directories
                 if (file.is_dir) continue;
@@ -487,13 +520,13 @@ void ui_panel_print_select_refresh_files() {
 
                 PrintFileData data;
                 data.filename = file.filename;
-                data.thumbnail_path = DEFAULT_PLACEHOLDER_THUMB;  // TODO: Extract from metadata
+                data.thumbnail_path = DEFAULT_PLACEHOLDER_THUMB;
                 data.file_size_bytes = file.size;
                 data.modified_timestamp = static_cast<time_t>(file.modified);
-                data.print_time_minutes = 0;  // TODO: Get from metadata
-                data.filament_grams = 0.0f;   // TODO: Get from metadata
+                data.print_time_minutes = 0;
+                data.filament_grams = 0.0f;
 
-                // Format strings
+                // Format strings (will be updated when metadata arrives)
                 data.size_str = format_file_size(data.file_size_bytes);
                 data.modified_str = format_modified_date(data.modified_timestamp);
                 data.print_time_str = format_print_time(data.print_time_minutes);
@@ -502,14 +535,65 @@ void ui_panel_print_select_refresh_files() {
                 file_list.push_back(data);
             }
 
-            // Apply sort and update views
+            // Show files immediately with placeholder metadata
             apply_sort();
             update_sort_indicators();
             populate_card_view();
             populate_list_view();
             update_empty_state();
 
-            spdlog::info("File list updated with {} G-code files", file_list.size());
+            spdlog::info("File list updated with {} G-code files (fetching metadata...)", file_list.size());
+
+            // Now fetch metadata for each file asynchronously
+            for (size_t i = 0; i < file_list.size(); i++) {
+                const std::string filename = file_list[i].filename;
+
+                api->get_file_metadata(filename,
+                    // Metadata success callback
+                    [i, filename](const FileMetadata& metadata) {
+                        // Bounds check (file_list could change during async operation)
+                        if (i >= file_list.size() || file_list[i].filename != filename) {
+                            spdlog::warn("File list changed during metadata fetch for {}", filename);
+                            return;
+                        }
+
+                        // Update metadata fields
+                        file_list[i].print_time_minutes = static_cast<int>(metadata.estimated_time / 60.0);
+                        file_list[i].filament_grams = static_cast<float>(metadata.filament_weight_total);
+
+                        // Update formatted strings
+                        file_list[i].print_time_str = format_print_time(file_list[i].print_time_minutes);
+                        file_list[i].filament_str = format_filament_weight(file_list[i].filament_grams);
+
+                        spdlog::debug("Updated metadata for {}: {}min, {}g",
+                                     filename, file_list[i].print_time_minutes, file_list[i].filament_grams);
+
+                        // Handle thumbnails if available
+                        if (!metadata.thumbnails.empty()) {
+                            // Use the first (typically largest) thumbnail
+                            std::string thumbnail_url = construct_thumbnail_url(metadata.thumbnails[0]);
+
+                            if (!thumbnail_url.empty()) {
+                                spdlog::info("Thumbnail URL for {}: {}", filename, thumbnail_url);
+
+                                // TODO: Download thumbnail from URL to local file
+                                // For now, keep using placeholder
+                                // Future enhancement: Download to /tmp/helix_thumbs/ and update file_list[i].thumbnail_path
+                            }
+                        }
+
+                        // Re-render views to show updated metadata
+                        populate_card_view();
+                        populate_list_view();
+                    },
+                    // Metadata error callback
+                    [filename](const MoonrakerError& error) {
+                        spdlog::warn("Failed to get metadata for {}: {} ({})",
+                                    filename, error.message, error.get_type_string());
+                        // Keep placeholder values, no need to do anything
+                    }
+                );
+            }
         },
         // Error callback
         [](const MoonrakerError& error) {

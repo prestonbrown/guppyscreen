@@ -350,11 +350,14 @@
   - [ ] Phase 4: Multi-extruder support (dynamic heater discovery)
   - [ ] Phase 5: System administration (updates, power, monitoring)
 
-- [ ] **File Operations** (FUTURE)
-  - [ ] List print files (server.files.list)
+- [x] **File Operations** ✅ PARTIAL (2025-11-02)
+  - [x] List print files (server.files.list) - fully implemented
+  - [x] Get file metadata (print time, filament, thumbnails) - fully implemented
+  - [x] Delete files - already implemented
+  - [x] Start prints - already implemented
+  - [x] Thumbnail URL construction - implemented (HTTP download deferred)
   - [ ] Upload files
-  - [ ] Delete files
-  - [ ] Start prints
+  - [ ] Thumbnail HTTP downloads (needs libhv HttpClient integration)
 
 - [ ] **Real-time Updates** (FUTURE)
   - [ ] Temperature monitoring (bind to UI)
@@ -408,6 +411,7 @@
   - [x] Zero spdlog/fmt deprecation warnings
   - [x] Independent spdlog submodule (fmt 11.2.0)
   - [x] Clean build output
+  - [x] Doxygen API documentation generation
 
 - [x] **Responsive Theme Testing** ✅ COMPLETE
   - [x] 50-test comprehensive suite
@@ -429,7 +433,13 @@
 
 **Priority: High** - Initial setup flow for new installations
 
-**Status: PLANNED** - Required before production use
+**Status: IN PROGRESS** - WiFi screen complete, connection/printer screens next
+
+**Progress:**
+- ✅ Wizard framework (navigation, responsive constants, subjects)
+- ✅ WiFi setup screen (fully working)
+- ⚠️ 7 additional screens created (XML exists, not wired to C++)
+- ⏳ Next: Moonraker connection screen implementation
 
 ### User Story
 New users need a guided setup wizard to:
@@ -571,7 +581,17 @@ New users need a guided setup wizard to:
 
 **Active Phase:** Phase 8 - Backend Integration **IN PROGRESS**
 
-**Recent Work (2025-11-01):**
+**Recent Work (2025-11-02):**
+
+**Phase 8 - Real File Operations Integration COMPLETE:**
+- ✅ Print Select Panel fetches real files from Moonraker (server.files.list)
+- ✅ Async metadata loading (print time, filament weight, thumbnails)
+- ✅ Progressive UI updates (files appear immediately, metadata loads async)
+- ✅ Thumbnail URL construction (HTTP download deferred to future)
+- ✅ Error handling and bounds checking
+- ✅ Mock mode compatibility maintained
+
+**Earlier Work (2025-11-01):**
 
 **Phase 8 - Moonraker API Phase 1 COMPLETE:**
 - ✅ Connection state machine with 5 states (DISCONNECTED, CONNECTING, CONNECTED, RECONNECTING, FAILED)
@@ -619,10 +639,10 @@ New users need a guided setup wizard to:
 
 **Next Priorities:**
 1. **Phase 11:** First-run configuration wizard (Moonraker connection + hardware mapping)
-2. **Phase 8:** Refine discovery error handling, build Settings UI, test with live printer
-3. **Phase 8:** Bind real temperature data to UI (replace mock data)
+2. **Phase 8:** Test real file ops with live printer, implement thumbnail downloads
+3. **Phase 8:** Bind real temperature data to UI (replace mock data in home panel)
 4. **Phase 5:** Implement motion controls with gcode_script() integration
-5. **Phase 8:** File operations (server.files.list for print select panel)
+5. **Phase 8:** File upload functionality
 
 **Completed Phases:** 1, 2, 3, 4
 **In Progress:** Phase 5 (Controls Panel), Phase 8 (Backend Integration)

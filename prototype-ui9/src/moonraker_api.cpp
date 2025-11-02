@@ -108,6 +108,84 @@ void MoonrakerAPI::delete_file(const std::string& filename,
     );
 }
 
+void MoonrakerAPI::move_file(const std::string& source,
+                             const std::string& dest,
+                             SuccessCallback on_success,
+                             ErrorCallback on_error) {
+    spdlog::info("Moving file from {} to {}", source, dest);
+
+    json params = {
+        {"source", source},
+        {"dest", dest}
+    };
+
+    client_.send_jsonrpc("server.files.move", params,
+        [on_success](json& response) {
+            spdlog::info("File moved successfully");
+            on_success();
+        },
+        on_error
+    );
+}
+
+void MoonrakerAPI::copy_file(const std::string& source,
+                             const std::string& dest,
+                             SuccessCallback on_success,
+                             ErrorCallback on_error) {
+    spdlog::info("Copying file from {} to {}", source, dest);
+
+    json params = {
+        {"source", source},
+        {"dest", dest}
+    };
+
+    client_.send_jsonrpc("server.files.copy", params,
+        [on_success](json& response) {
+            spdlog::info("File copied successfully");
+            on_success();
+        },
+        on_error
+    );
+}
+
+void MoonrakerAPI::create_directory(const std::string& path,
+                                    SuccessCallback on_success,
+                                    ErrorCallback on_error) {
+    spdlog::info("Creating directory: {}", path);
+
+    json params = {
+        {"path", path}
+    };
+
+    client_.send_jsonrpc("server.files.post_directory", params,
+        [on_success](json& response) {
+            spdlog::info("Directory created successfully");
+            on_success();
+        },
+        on_error
+    );
+}
+
+void MoonrakerAPI::delete_directory(const std::string& path,
+                                    bool force,
+                                    SuccessCallback on_success,
+                                    ErrorCallback on_error) {
+    spdlog::info("Deleting directory: {} (force: {})", path, force);
+
+    json params = {
+        {"path", path},
+        {"force", force}
+    };
+
+    client_.send_jsonrpc("server.files.delete_directory", params,
+        [on_success](json& response) {
+            spdlog::info("Directory deleted successfully");
+            on_success();
+        },
+        on_error
+    );
+}
+
 // ============================================================================
 // Job Control Operations
 // ============================================================================

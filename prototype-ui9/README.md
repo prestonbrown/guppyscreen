@@ -63,11 +63,32 @@ npm install  # Install lv_font_conv and lv_img_conv
 # Build (parallel, auto-detects CPU cores)
 make -j
 
-# Run simulator
+# Run simulator (production mode - requires real hardware/printer)
 ./build/bin/helix-ui-proto
+
+# Run in test mode (all components mocked - no hardware needed)
+./build/bin/helix-ui-proto --test
+
+# Test mode with selective real components
+./build/bin/helix-ui-proto --test --real-moonraker      # Real printer, mock network
+./build/bin/helix-ui-proto --test --real-wifi --real-files  # Real WiFi/files, mock rest
 
 # Controls: Click navigation icons, press 'S' for screenshot
 ```
+
+### Test Mode
+
+The prototype includes a comprehensive test mode for development without hardware:
+
+- **Production Mode** (default): Never uses mocks, requires real hardware
+- **Test Mode** (`--test`): Uses mock implementations for all components
+- **Selective Real Components**: Override specific mocks with `--real-*` flags:
+  - `--real-wifi`: Use real WiFi hardware
+  - `--real-ethernet`: Use real Ethernet hardware
+  - `--real-moonraker`: Connect to real printer
+  - `--real-files`: Use real files from printer
+
+Test mode displays a banner showing which components are mocked vs real.
 
 ## Key Features
 

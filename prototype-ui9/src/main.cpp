@@ -47,6 +47,9 @@
 #include "ui_icon_loader.h"
 #include "printer_state.h"
 #include "moonraker_client.h"
+#include "moonraker_api.h"
+#include "app_globals.h"
+#include "test_config.h"
 #include "config.h"
 #include "tips_manager.h"
 #include <spdlog/spdlog.h>
@@ -71,6 +74,13 @@ static int SCREEN_HEIGHT = UI_SCREEN_SMALL_H;
 // Printer state management
 static PrinterState printer_state;
 
+// Moonraker API instances (initialized in main after config load)
+static MoonrakerClient* moonraker_client = nullptr;
+static MoonrakerAPI* moonraker_api = nullptr;
+
+// Test mode configuration
+static TestConfig g_test_config;
+
 // Thread-safe queue for Moonraker notifications (cross-thread communication)
 static std::queue<json> notification_queue;
 static std::mutex notification_mutex;
@@ -83,6 +93,27 @@ struct OverlayPanels {
     lv_obj_t* extrusion = nullptr;
     lv_obj_t* print_status = nullptr;
 } static overlay_panels;
+
+// Global accessor functions implementation
+MoonrakerClient* get_moonraker_client() {
+    return moonraker_client;
+}
+
+MoonrakerAPI* get_moonraker_api() {
+    return moonraker_api;
+}
+
+PrinterState& get_printer_state() {
+    return printer_state;
+}
+
+const TestConfig& get_test_config() {
+    return g_test_config;
+}
+
+TestConfig* get_mutable_test_config() {
+    return &g_test_config;
+}
 
 // Forward declarations
 static void save_screenshot();
@@ -285,6 +316,16 @@ static bool parse_command_line_args(int argc, char** argv,
         } else if (strcmp(argv[i], "--light") == 0) {
             dark_mode = false;
             theme_requested = true;
+        } else if (strcmp(argv[i], "--test") == 0) {
+            g_test_config.test_mode = true;
+        } else if (strcmp(argv[i], "--real-wifi") == 0) {
+            g_test_config.use_real_wifi = true;
+        } else if (strcmp(argv[i], "--real-ethernet") == 0) {
+            g_test_config.use_real_ethernet = true;
+        } else if (strcmp(argv[i], "--real-moonraker") == 0) {
+            g_test_config.use_real_moonraker = true;
+        } else if (strcmp(argv[i], "--real-files") == 0) {
+            g_test_config.use_real_files = true;
         } else if (strcmp(argv[i], "-v") == 0 || strcmp(argv[i], "-vv") == 0 || strcmp(argv[i], "-vvv") == 0) {
             // Count the number of 'v' characters for verbosity level
             const char* p = argv[i];
@@ -313,6 +354,12 @@ static bool parse_command_line_args(int argc, char** argv,
             printf("  --light              Use light theme\n");
             printf("  -v, --verbose        Increase verbosity (-v=info, -vv=debug, -vvv=trace)\n");
             printf("  -h, --help           Show this help message\n");
+            printf("\nTest Mode Options:\n");
+            printf("  --test               Enable test mode (uses all mocks by default)\n");
+            printf("    --real-wifi        Use real WiFi hardware (requires --test)\n");
+            printf("    --real-ethernet    Use real Ethernet hardware (requires --test)\n");
+            printf("    --real-moonraker   Connect to real printer (requires --test)\n");
+            printf("    --real-files       Use real files from printer (requires --test)\n");
             printf("\nAvailable panels:\n");
             printf("  home, controls, motion, nozzle-temp, bed-temp, extrusion,\n");
             printf("  print-status, filament, settings, advanced, print-select\n");
@@ -329,6 +376,10 @@ static bool parse_command_line_args(int argc, char** argv,
             printf("  Examples:\n");
             printf("    %s --display 1        # Center on display 1\n", argv[0]);
             printf("    %s -x 100 -y 200      # Position at (100, 200)\n", argv[0]);
+            printf("\nTest Mode Examples:\n");
+            printf("  %s --test                           # Full mock mode\n", argv[0]);
+            printf("  %s --test --real-moonraker          # Test UI with real printer\n", argv[0]);
+            printf("  %s --test --real-wifi --real-files  # Real WiFi and files, mock rest\n", argv[0]);
             return false;
         } else {
             // Legacy support: first positional arg is panel name
@@ -357,6 +408,44 @@ static bool parse_command_line_args(int argc, char** argv,
                 return false;
             }
         }
+    }
+
+    // Validate test mode flags
+    if ((g_test_config.use_real_wifi || g_test_config.use_real_ethernet ||
+         g_test_config.use_real_moonraker || g_test_config.use_real_files) &&
+        !g_test_config.test_mode) {
+        printf("Error: --real-* flags require --test mode\n");
+        printf("Use --help for more information\n");
+        return false;
+    }
+
+    // Print test mode configuration if enabled
+    if (g_test_config.test_mode) {
+        printf("╔════════════════════════════════════════╗\n");
+        printf("║           TEST MODE ENABLED            ║\n");
+        printf("╚════════════════════════════════════════╝\n");
+
+        if (g_test_config.use_real_wifi)
+            printf("  Using REAL WiFi hardware\n");
+        else
+            printf("  Using MOCK WiFi backend\n");
+
+        if (g_test_config.use_real_ethernet)
+            printf("  Using REAL Ethernet hardware\n");
+        else
+            printf("  Using MOCK Ethernet backend\n");
+
+        if (g_test_config.use_real_moonraker)
+            printf("  Using REAL Moonraker connection\n");
+        else
+            printf("  Using MOCK Moonraker responses\n");
+
+        if (g_test_config.use_real_files)
+            printf("  Using REAL files from printer\n");
+        else
+            printf("  Using TEST file data\n");
+
+        printf("\n");
     }
 
     return true;
@@ -1101,7 +1190,7 @@ int main(int argc, char** argv) {
 
     // Initialize Moonraker connection
     spdlog::info("Initializing Moonraker client...");
-    MoonrakerClient moonraker_client;
+    moonraker_client = new MoonrakerClient();
 
     // Configure timeouts from config file
     uint32_t connection_timeout = config->get<int>(config->df() + "moonraker_connection_timeout_ms", 10000);
@@ -1111,14 +1200,14 @@ int main(int argc, char** argv) {
     uint32_t reconnect_max_delay = config->get<int>(config->df() + "moonraker_reconnect_max_delay_ms", 2000);
     uint32_t timeout_check_interval = config->get<int>(config->df() + "moonraker_timeout_check_interval_ms", 2000);
 
-    moonraker_client.configure_timeouts(connection_timeout, request_timeout, keepalive_interval,
+    moonraker_client->configure_timeouts(connection_timeout, request_timeout, keepalive_interval,
                                         reconnect_min_delay, reconnect_max_delay);
 
     spdlog::debug("Moonraker timeouts configured: connection={}ms, request={}ms, keepalive={}ms, check_interval={}ms",
                   connection_timeout, request_timeout, keepalive_interval, timeout_check_interval);
 
     // Set up state change callback to automatically update PrinterState
-    moonraker_client.set_state_change_callback(
+    moonraker_client->set_state_change_callback(
         [](ConnectionState old_state, ConnectionState new_state) {
             const char* messages[] = {
                 "Disconnected",      // DISCONNECTED
@@ -1179,20 +1268,24 @@ int main(int argc, char** argv) {
     // Register notification callback to queue updates for main thread
     // CRITICAL: Moonraker callbacks run on background thread, but LVGL is NOT thread-safe
     // Queue notifications here, process on main thread in event loop
-    moonraker_client.register_notify_update([](json& notification) {
+    moonraker_client->register_notify_update([](json& notification) {
         std::lock_guard<std::mutex> lock(notification_mutex);
         notification_queue.push(notification);
     });
 
+    // Create MoonrakerAPI instance
+    spdlog::info("Creating MoonrakerAPI instance...");
+    moonraker_api = new MoonrakerAPI(*moonraker_client, printer_state);
+
     // Connect to Moonraker
     spdlog::info("Connecting to Moonraker at {}", moonraker_url);
-    int connect_result = moonraker_client.connect(moonraker_url.c_str(),
-        [&moonraker_client]() {
+    int connect_result = moonraker_client->connect(moonraker_url.c_str(),
+        []() {
             spdlog::info("✓ Connected to Moonraker");
             // State change callback will handle updating PrinterState
 
             // Start auto-discovery (must be called AFTER connection is established)
-            moonraker_client.discover_printer([]() {
+            moonraker_client->discover_printer([]() {
                 spdlog::info("✓ Printer auto-discovery complete");
             });
         },
@@ -1262,7 +1355,7 @@ int main(int argc, char** argv) {
 
         // Check for request timeouts (using configured interval)
         if (current_time - last_timeout_check >= timeout_check_interval) {
-            moonraker_client.process_timeouts();
+            moonraker_client->process_timeouts();
             last_timeout_check = current_time;
         }
 
@@ -1284,6 +1377,13 @@ int main(int argc, char** argv) {
 
     // Cleanup
     spdlog::info("Shutting down...");
+
+    // Clean up Moonraker instances
+    delete moonraker_api;
+    moonraker_api = nullptr;
+    delete moonraker_client;
+    moonraker_client = nullptr;
+
     lv_deinit();  // LVGL handles SDL cleanup internally
 
     return 0;

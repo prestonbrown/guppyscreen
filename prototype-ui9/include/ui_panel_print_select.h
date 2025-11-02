@@ -71,6 +71,12 @@ void ui_panel_print_select_setup(lv_obj_t* panel_root, lv_obj_t* parent_screen);
 void ui_panel_print_select_populate_test_data(lv_obj_t* panel_root);
 
 /**
+ * Refresh print files from Moonraker
+ * Fetches file list from gcodes directory and updates display
+ */
+void ui_panel_print_select_refresh_files();
+
+/**
  * Toggle between card and list view
  */
 void ui_panel_print_select_toggle_view();

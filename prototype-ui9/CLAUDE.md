@@ -125,7 +125,38 @@ spdlog::info("Panel initialized");
 
 **Why**: Consistent output, configurable verbosity, proper formatting.
 
-### 4. Read Documentation Before Implementation
+### 4. NEVER Use Mock Implementations in Production Builds
+
+**Rule**: Mock implementations must NEVER be automatically used in production. Always check TestConfig before using mocks.
+
+```cpp
+// ❌ WRONG - Automatic mock fallback (DANGEROUS)
+if (!backend->start()) {
+    return std::make_unique<WifiBackendMock>();  // NEVER DO THIS
+}
+
+// ✅ CORRECT - Check test mode first
+const auto& config = get_test_config();
+if (config.should_mock_wifi()) {
+    return std::make_unique<WifiBackendMock>();  // OK in test mode
+}
+
+// Production: Try real backend, return nullptr if unavailable
+auto backend = std::make_unique<WifiBackendMacOS>();
+if (!backend->start()) {
+    return nullptr;  // Fail gracefully, NO FALLBACK
+}
+```
+
+**Production Safety Checklist**:
+1. **No automatic fallbacks** - Production fails gracefully without hardware
+2. **Explicit test mode** - Mocks require `--test` command-line flag
+3. **Clear error messages** - Show user-friendly errors when hardware unavailable
+4. **Visual indicators** - Test mode must show banner/badge
+
+**Why**: Production users should NEVER accidentally get mock data. It hides real problems, creates security issues, and causes debugging nightmares.
+
+### 5. Read Documentation Before Implementation
 
 **Rule**: For areas with known gotchas, read the relevant docs BEFORE coding:
 

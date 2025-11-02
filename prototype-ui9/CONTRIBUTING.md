@@ -42,6 +42,29 @@ This document covers code standards, workflow practices, and submission guidelin
 
 ## Code Standards
 
+### Production Safety Rules
+
+**CRITICAL: Mock implementations must NEVER be used in production builds.**
+
+See **[CLAUDE.md](CLAUDE.md)** Critical Rule #4 for the complete production safety requirements.
+
+**Key Points:**
+- No automatic fallbacks to mock implementations
+- Mocks require explicit `--test` command-line flag
+- Production mode must fail gracefully when hardware unavailable
+- Test mode must have clear visual indicators
+
+**Testing with Mocks:**
+```bash
+./build/bin/helix-ui-proto --test              # Full mock mode
+./build/bin/helix-ui-proto --test --real-wifi  # Mix real and mock
+```
+
+**Production (No Mocks Ever):**
+```bash
+./build/bin/helix-ui-proto  # Will fail gracefully if hardware unavailable
+```
+
 ### Copyright Headers
 
 **All new source files MUST include GPL v3 copyright header.**

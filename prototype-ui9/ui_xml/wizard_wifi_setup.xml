@@ -182,7 +182,6 @@
 			</lv_obj>
 		</lv_obj>
 
-		<!-- Password modal overlay (hidden by default) -->
-		<wifi_password_modal name="wifi_password_modal"/>
+		<!-- Password modal now created on-demand via modal system -->
 	</view>
 </component>

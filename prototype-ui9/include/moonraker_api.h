@@ -128,6 +128,56 @@ public:
                     SuccessCallback on_success,
                     ErrorCallback on_error);
 
+    /**
+     * @brief Move or rename a file
+     *
+     * @param source Source path (e.g., "gcodes/old_dir/file.gcode")
+     * @param dest Destination path (e.g., "gcodes/new_dir/file.gcode")
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void move_file(const std::string& source,
+                  const std::string& dest,
+                  SuccessCallback on_success,
+                  ErrorCallback on_error);
+
+    /**
+     * @brief Copy a file
+     *
+     * @param source Source path (e.g., "gcodes/original.gcode")
+     * @param dest Destination path (e.g., "gcodes/copy.gcode")
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void copy_file(const std::string& source,
+                  const std::string& dest,
+                  SuccessCallback on_success,
+                  ErrorCallback on_error);
+
+    /**
+     * @brief Create a directory
+     *
+     * @param path Directory path (e.g., "gcodes/my_folder")
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void create_directory(const std::string& path,
+                         SuccessCallback on_success,
+                         ErrorCallback on_error);
+
+    /**
+     * @brief Delete a directory
+     *
+     * @param path Directory path (e.g., "gcodes/old_folder")
+     * @param force Force deletion even if not empty
+     * @param on_success Success callback
+     * @param on_error Error callback
+     */
+    void delete_directory(const std::string& path,
+                         bool force,
+                         SuccessCallback on_success,
+                         ErrorCallback on_error);
+
     // ========================================================================
     // Job Control Operations
     // ========================================================================

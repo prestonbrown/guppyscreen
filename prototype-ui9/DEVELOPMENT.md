@@ -551,9 +551,48 @@ This creates `compile_commands.json` for IDE language servers (clangd, etc.).
 1. **Edit code** in `src/` or `include/`
 2. **Edit XML** in `ui_xml/` (layout/styling changes - no rebuild needed)
 3. **Build** with `make -j` (parallel incremental build)
-4. **Test** with `./build/bin/helix-ui-proto [panel_name]`
+4. **Test** with `./build/bin/helix-ui-proto --test [panel_name]` (test mode)
 5. **Screenshot** with `./scripts/screenshot.sh` or press **S** in UI
 6. **Commit** with working incremental changes
+
+### Test Mode Development
+
+The test mode system allows development without hardware or network infrastructure:
+
+**Basic Usage:**
+```bash
+# Full mock mode - no hardware needed
+./build/bin/helix-ui-proto --test
+
+# Test with real printer but mock network
+./build/bin/helix-ui-proto --test --real-moonraker
+
+# Test with real WiFi but mock printer
+./build/bin/helix-ui-proto --test --real-wifi
+
+# Mixed mode - real WiFi and printer, mock Ethernet
+./build/bin/helix-ui-proto --test --real-wifi --real-moonraker
+```
+
+**Available Flags:**
+- `--test` - Enable test mode (required for all mock functionality)
+- `--real-wifi` - Use real WiFi hardware instead of mock
+- `--real-ethernet` - Use real Ethernet hardware instead of mock
+- `--real-moonraker` - Connect to real printer instead of mock
+- `--real-files` - Use real files from printer instead of test data
+
+**Test Mode Features:**
+- Mock WiFi backend with 10 realistic networks
+- Mock Ethernet backend with simulated connection
+- Test print files with various sizes and metadata
+- Simulated connection delays and failures (5% auth failure rate)
+- Visual banner showing what's mocked vs real
+
+**Production Safety:**
+- **NEVER** uses mocks without explicit `--test` flag
+- Production mode fails gracefully if hardware unavailable
+- Clear error messages instead of silent mock fallbacks
+- Test mode banner prevents confusion about mock vs real
 
 ### XML vs C++ Changes
 

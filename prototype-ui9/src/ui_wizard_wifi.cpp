@@ -24,6 +24,7 @@
 #include "wifi_manager.h"
 #include "ethernet_manager.h"
 #include "ui_keyboard.h"
+#include "ui_modal.h"
 #include "lvgl/lvgl.h"
 #include <spdlog/spdlog.h>
 #include <memory>
@@ -306,11 +307,7 @@ lv_obj_t* ui_wizard_wifi_create(lv_obj_t* parent) {
     // Must be done AFTER components are registered but before creating network items
     ui_wizard_wifi_register_responsive_constants();
 
-    // Find password modal (hidden by default in XML)
-    password_modal = lv_obj_find_by_name(wifi_screen_root, "wifi_password_modal");
-    if (!password_modal) {
-        spdlog::warn("[WiFi Screen] Password modal not found in XML");
-    }
+    // Password modal is now created on-demand via modal system
 
     // Find network list container
     network_list_container = lv_obj_find_by_name(wifi_screen_root, "network_list_container");
@@ -380,11 +377,6 @@ void ui_wizard_wifi_cleanup() {
 }
 
 void ui_wizard_wifi_show_password_modal(const char* ssid) {
-    if (!password_modal) {
-        spdlog::error("[WiFi Screen] Cannot show password modal: modal not found");
-        return;
-    }
-
     if (!ssid) {
         spdlog::error("[WiFi Screen] Cannot show password modal: null SSID");
         return;
@@ -392,30 +384,55 @@ void ui_wizard_wifi_show_password_modal(const char* ssid) {
 
     spdlog::debug("[WiFi Screen] Showing password modal for SSID: {}", ssid);
 
-    // Update modal title with SSID
-    lv_obj_t* modal_ssid_label = lv_obj_find_by_name(password_modal, "modal_ssid");
-    if (modal_ssid_label) {
-        lv_label_set_text(modal_ssid_label, ssid);
+    // Configure modal: centered, non-persistent, with automatic keyboard positioning
+    ui_modal_keyboard_config_t kbd_config = {
+        .auto_position = true  // Keyboard will auto-position based on modal alignment
+    };
+
+    ui_modal_config_t config = {
+        .position = {.use_alignment = true, .alignment = LV_ALIGN_CENTER},
+        .backdrop_opa = 180,
+        .keyboard = &kbd_config,
+        .persistent = false,  // Create on demand
+        .on_close = nullptr
+    };
+
+    // Create modal with SSID in attributes
+    const char* attrs[] = {
+        "ssid", ssid,
+        NULL
+    };
+
+    password_modal = ui_modal_show("wifi_password_modal", &config, attrs);
+
+    if (!password_modal) {
+        spdlog::error("[WiFi Screen] Failed to create password modal");
+        return;
     }
 
-    // Clear password input
+    // Find password input and register keyboard
     lv_obj_t* password_input = lv_obj_find_by_name(password_modal, "password_input");
     if (password_input) {
         lv_textarea_set_text(password_input, "");
-        // Register textarea with keyboard for input
-        ui_keyboard_register_textarea(password_input);
+        // Register with modal keyboard system (handles automatic positioning)
+        ui_modal_register_keyboard(password_modal, password_input);
         // Focus textarea to trigger keyboard
         lv_obj_add_state(password_input, LV_STATE_FOCUSED);
     }
 
-    // Hide status message
-    lv_obj_t* modal_status = lv_obj_find_by_name(password_modal, "modal_status");
-    if (modal_status) {
-        lv_obj_add_flag(modal_status, LV_OBJ_FLAG_HIDDEN);
+    // Wire up cancel button
+    lv_obj_t* cancel_btn = lv_obj_find_by_name(password_modal, "modal_cancel_btn");
+    if (cancel_btn) {
+        lv_obj_add_event_cb(cancel_btn, on_modal_cancel_clicked, LV_EVENT_CLICKED, nullptr);
     }
 
-    // Show modal
-    lv_obj_remove_flag(password_modal, LV_OBJ_FLAG_HIDDEN);
+    // Wire up connect button
+    lv_obj_t* connect_btn = lv_obj_find_by_name(password_modal, "modal_connect_btn");
+    if (connect_btn) {
+        lv_obj_add_event_cb(connect_btn, on_modal_connect_clicked, LV_EVENT_CLICKED, nullptr);
+    }
+
+    spdlog::info("[WiFi Screen] Password modal shown for SSID: {}", ssid);
 }
 
 void ui_wizard_wifi_hide_password_modal() {
@@ -424,7 +441,8 @@ void ui_wizard_wifi_hide_password_modal() {
     }
 
     spdlog::debug("[WiFi Screen] Hiding password modal");
-    lv_obj_add_flag(password_modal, LV_OBJ_FLAG_HIDDEN);
+    ui_modal_hide(password_modal);
+    password_modal = nullptr;
 }
 
 // ============================================================================

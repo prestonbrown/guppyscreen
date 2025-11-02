@@ -24,6 +24,9 @@
 #include "ui_fonts.h"
 #include "ui_theme.h"
 #include "ui_nav.h"
+#include "ui_modal.h"
+#include "app_globals.h"
+#include "moonraker_api.h"
 #include "lvgl/src/others/xml/lv_xml.h"
 #include <spdlog/spdlog.h>
 #include <string>
@@ -193,7 +196,6 @@ static void update_sort_indicators();
 static void attach_card_click_handler(lv_obj_t* card, const PrintFileData& file_data);
 static void attach_row_click_handler(lv_obj_t* row, const PrintFileData& file_data);
 static void create_detail_view();
-static void create_confirmation_dialog();
 static void scale_detail_images();
 
 // ============================================================================
@@ -299,15 +301,25 @@ void ui_panel_print_select_setup(lv_obj_t* panel_root, lv_obj_t* parent_screen) 
         }
     }
 
-    // Create detail view and confirmation dialog
+    // Create detail view (confirmation dialog created on-demand)
     create_detail_view();
-    create_confirmation_dialog();
 
     // Register resize callback for responsive card layout
     ui_resize_handler_register(on_resize);
 
     // Mark panel as fully initialized (enables resize callbacks)
     panel_initialized = true;
+
+    // Try to refresh from Moonraker, fall back to test data if not connected
+    MoonrakerAPI* api = get_moonraker_api();
+    if (api) {
+        // Refresh real files from Moonraker
+        ui_panel_print_select_refresh_files();
+    } else {
+        // Fall back to test data if Moonraker not available
+        spdlog::info("MoonrakerAPI not available, using test data");
+        ui_panel_print_select_populate_test_data(panel_root);
+    }
 
     spdlog::info("Print select panel setup complete");
 }
@@ -439,6 +451,75 @@ static void update_sort_indicators() {
             }
         }
     }
+}
+
+// ============================================================================
+// Refresh files from Moonraker
+// ============================================================================
+void ui_panel_print_select_refresh_files() {
+    MoonrakerAPI* api = get_moonraker_api();
+    if (!api) {
+        spdlog::warn("Cannot refresh files: MoonrakerAPI not initialized");
+        return;
+    }
+
+    spdlog::info("Refreshing file list from Moonraker...");
+
+    // Request file list from gcodes directory (non-recursive for now)
+    api->list_files("gcodes", "", false,
+        // Success callback
+        [](const std::vector<FileInfo>& files) {
+            spdlog::info("Received {} files from Moonraker", files.size());
+
+            // Clear existing file list
+            file_list.clear();
+
+            // Convert FileInfo to PrintFileData
+            for (const auto& file : files) {
+                // Skip directories
+                if (file.is_dir) continue;
+
+                // Only process .gcode files
+                if (file.filename.find(".gcode") == std::string::npos &&
+                    file.filename.find(".g") == std::string::npos) {
+                    continue;
+                }
+
+                PrintFileData data;
+                data.filename = file.filename;
+                data.thumbnail_path = DEFAULT_PLACEHOLDER_THUMB;  // TODO: Extract from metadata
+                data.file_size_bytes = file.size;
+                data.modified_timestamp = static_cast<time_t>(file.modified);
+                data.print_time_minutes = 0;  // TODO: Get from metadata
+                data.filament_grams = 0.0f;   // TODO: Get from metadata
+
+                // Format strings
+                data.size_str = format_file_size(data.file_size_bytes);
+                data.modified_str = format_modified_date(data.modified_timestamp);
+                data.print_time_str = format_print_time(data.print_time_minutes);
+                data.filament_str = format_filament_weight(data.filament_grams);
+
+                file_list.push_back(data);
+            }
+
+            // Apply sort and update views
+            apply_sort();
+            update_sort_indicators();
+            populate_card_view();
+            populate_list_view();
+            update_empty_state();
+
+            spdlog::info("File list updated with {} G-code files", file_list.size());
+        },
+        // Error callback
+        [](const MoonrakerError& error) {
+            spdlog::error("Failed to refresh file list: {} ({})",
+                         error.message, error.get_type_string());
+
+            // Show error to user (you might want to display this in UI)
+            // For now, just log it
+        }
+    );
 }
 
 // ============================================================================
@@ -772,31 +853,72 @@ static void create_detail_view() {
     if (print_button) {
         lv_obj_add_event_cb(print_button, [](lv_event_t* e) {
             (void)e;
-            if (print_status_panel_widget) {
-                // Hide detail view
-                ui_panel_print_select_hide_detail_view();
 
-                // Push print status panel onto navigation history
-                ui_nav_push_overlay(print_status_panel_widget);
+            // Get the filename to print
+            std::string filename_to_print(selected_filename_buffer);
 
-                // Hide print select panel (will be restored by nav history when going back)
-                if (panel_root_widget) {
-                    lv_obj_add_flag(panel_root_widget, LV_OBJ_FLAG_HIDDEN);
-                }
+            // Get MoonrakerAPI instance
+            MoonrakerAPI* api = get_moonraker_api();
+            if (api) {
+                spdlog::info("Starting print: {}", filename_to_print);
 
-                // Start mock print with selected file
-                const char* filename = selected_filename_buffer;
+                // Start the print via Moonraker
+                api->start_print(filename_to_print,
+                    // Success callback
+                    []() {
+                        spdlog::info("Print started successfully");
 
-                // Show print status panel
-                lv_obj_remove_flag(print_status_panel_widget, LV_OBJ_FLAG_HIDDEN);
-                lv_obj_move_foreground(print_status_panel_widget);
+                        if (print_status_panel_widget) {
+                            // Hide detail view
+                            ui_panel_print_select_hide_detail_view();
 
-                // Start mock print (250 layers, 3 hours = 10800 seconds)
-                ui_panel_print_status_start_mock_print(filename, 250, 10800);
+                            // Push print status panel onto navigation history
+                            ui_nav_push_overlay(print_status_panel_widget);
 
-                spdlog::info("Started mock print for: %s", filename);
+                            // Hide print select panel (will be restored by nav history when going back)
+                            if (panel_root_widget) {
+                                lv_obj_add_flag(panel_root_widget, LV_OBJ_FLAG_HIDDEN);
+                            }
+
+                            // Show print status panel
+                            lv_obj_remove_flag(print_status_panel_widget, LV_OBJ_FLAG_HIDDEN);
+                            lv_obj_move_foreground(print_status_panel_widget);
+
+                            // Note: Print status panel will now show real print progress from Moonraker
+                            // via the PrinterState subjects that are updated from notifications
+                        } else {
+                            spdlog::error("Print status panel not set - cannot show print progress");
+                        }
+                    },
+                    // Error callback
+                    [filename_to_print](const MoonrakerError& error) {
+                        spdlog::error("Failed to start print for {}: {} ({})",
+                                     filename_to_print, error.message, error.get_type_string());
+
+                        // TODO: Show error message to user
+                    }
+                );
             } else {
-                spdlog::error("Print status panel not set - cannot start print");
+                // Fall back to mock print if MoonrakerAPI not available
+                spdlog::warn("MoonrakerAPI not available - using mock print");
+
+                if (print_status_panel_widget) {
+                    ui_panel_print_select_hide_detail_view();
+                    ui_nav_push_overlay(print_status_panel_widget);
+
+                    if (panel_root_widget) {
+                        lv_obj_add_flag(panel_root_widget, LV_OBJ_FLAG_HIDDEN);
+                    }
+
+                    const char* filename = selected_filename_buffer;
+                    lv_obj_remove_flag(print_status_panel_widget, LV_OBJ_FLAG_HIDDEN);
+                    lv_obj_move_foreground(print_status_panel_widget);
+
+                    // Start mock print (250 layers, 3 hours = 10800 seconds)
+                    ui_panel_print_status_start_mock_print(filename, 250, 10800);
+
+                    spdlog::info("Started mock print for: %s", filename);
+                }
             }
         }, LV_EVENT_CLICKED, nullptr);
     }
@@ -816,58 +938,40 @@ static void create_detail_view() {
 // ============================================================================
 // Delete confirmation dialog
 // ============================================================================
-void ui_panel_print_select_show_delete_confirmation() {
-    if (!confirmation_dialog_widget) {
-        spdlog::error("Confirmation dialog not created");
-        return;
-    }
-
-    // Update dialog message with current filename
-    lv_obj_t* message_label = lv_obj_find_by_name(confirmation_dialog_widget, "dialog_message");
-    if (message_label) {
-        char msg_buf[256];
-        snprintf(msg_buf, sizeof(msg_buf), "Are you sure you want to delete '%s'? This action cannot be undone.",
-                 selected_filename_buffer);
-        lv_label_set_text(message_label, msg_buf);
-    }
-
-    lv_obj_remove_flag(confirmation_dialog_widget, LV_OBJ_FLAG_HIDDEN);
-    lv_obj_move_foreground(confirmation_dialog_widget);
-    spdlog::info("Delete confirmation dialog shown");
-}
-
 static void hide_delete_confirmation() {
     if (confirmation_dialog_widget) {
-        lv_obj_add_flag(confirmation_dialog_widget, LV_OBJ_FLAG_HIDDEN);
+        ui_modal_hide(confirmation_dialog_widget);
+        confirmation_dialog_widget = nullptr;
     }
 }
 
-static void create_confirmation_dialog() {
-    if (!parent_screen_widget) {
-        spdlog::error("Cannot create confirmation dialog: parent_screen_widget is null");
-        return;
-    }
+void ui_panel_print_select_show_delete_confirmation() {
+    // Configure modal: centered, non-persistent (create on demand), no keyboard
+    ui_modal_config_t config = {
+        .position = {.use_alignment = true, .alignment = LV_ALIGN_CENTER},
+        .backdrop_opa = 180,
+        .keyboard = nullptr,
+        .persistent = false,  // Create on demand
+        .on_close = nullptr
+    };
 
-    if (confirmation_dialog_widget) {
-        spdlog::error("Confirmation dialog already exists");
-        return;
-    }
+    // Create message with current filename
+    char msg_buf[256];
+    snprintf(msg_buf, sizeof(msg_buf), "Are you sure you want to delete '%s'? This action cannot be undone.",
+             selected_filename_buffer);
 
-    // Create confirmation dialog from XML component (as child of screen for correct z-order)
     const char* attrs[] = {
         "title", "Delete File?",
-        "message", "Are you sure you want to delete this file? This action cannot be undone.",
+        "message", msg_buf,
         NULL
     };
 
-    confirmation_dialog_widget = (lv_obj_t*)lv_xml_create(parent_screen_widget, "confirmation_dialog", attrs);
+    confirmation_dialog_widget = ui_modal_show("confirmation_dialog", &config, attrs);
 
     if (!confirmation_dialog_widget) {
-        spdlog::error("Failed to create confirmation dialog from XML");
+        spdlog::error("Failed to create confirmation dialog");
         return;
     }
-
-    lv_obj_add_flag(confirmation_dialog_widget, LV_OBJ_FLAG_HIDDEN);
 
     // Wire up cancel button
     lv_obj_t* cancel_btn = lv_obj_find_by_name(confirmation_dialog_widget, "dialog_cancel_btn");
@@ -883,23 +987,47 @@ static void create_confirmation_dialog() {
     if (confirm_btn) {
         lv_obj_add_event_cb(confirm_btn, [](lv_event_t* e) {
             (void)e;
-            // TODO: Implement actual delete functionality
-            spdlog::info("File deleted (placeholder action)");
-            hide_delete_confirmation();
-            ui_panel_print_select_hide_detail_view();
+
+            // Get the filename to delete
+            std::string filename_to_delete(selected_filename_buffer);
+
+            // Get MoonrakerAPI instance
+            MoonrakerAPI* api = get_moonraker_api();
+            if (api) {
+                spdlog::info("Deleting file: {}", filename_to_delete);
+
+                // Delete the file via Moonraker
+                api->delete_file(filename_to_delete,
+                    // Success callback
+                    []() {
+                        spdlog::info("File deleted successfully");
+
+                        // Hide dialogs
+                        hide_delete_confirmation();
+                        ui_panel_print_select_hide_detail_view();
+
+                        // Refresh the file list
+                        ui_panel_print_select_refresh_files();
+                    },
+                    // Error callback
+                    [](const MoonrakerError& error) {
+                        spdlog::error("Failed to delete file: {} ({})",
+                                     error.message, error.get_type_string());
+
+                        // Hide confirmation dialog but keep detail view open
+                        hide_delete_confirmation();
+
+                        // TODO: Show error message to user
+                    }
+                );
+            } else {
+                spdlog::warn("MoonrakerAPI not available - cannot delete file");
+                hide_delete_confirmation();
+            }
         }, LV_EVENT_CLICKED, nullptr);
     }
 
-    // Click backdrop to cancel
-    lv_obj_add_event_cb(confirmation_dialog_widget, [](lv_event_t* e) {
-        lv_obj_t* target = (lv_obj_t*)lv_event_get_target(e);
-        lv_obj_t* current_target = (lv_obj_t*)lv_event_get_current_target(e);
-        if (target == current_target) {
-            hide_delete_confirmation();
-        }
-    }, LV_EVENT_CLICKED, nullptr);
-
-    spdlog::debug("Confirmation dialog created");
+    spdlog::info("Delete confirmation dialog shown");
 }
 
 // ============================================================================

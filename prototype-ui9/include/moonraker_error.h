@@ -58,6 +58,25 @@ struct MoonrakerError {
     bool has_error() const { return type != MoonrakerErrorType::NONE; }
 
     /**
+     * @brief Get string representation of error type
+     */
+    std::string get_type_string() const {
+        switch (type) {
+            case MoonrakerErrorType::NONE: return "NONE";
+            case MoonrakerErrorType::TIMEOUT: return "TIMEOUT";
+            case MoonrakerErrorType::CONNECTION_LOST: return "CONNECTION_LOST";
+            case MoonrakerErrorType::JSON_RPC_ERROR: return "JSON_RPC_ERROR";
+            case MoonrakerErrorType::PARSE_ERROR: return "PARSE_ERROR";
+            case MoonrakerErrorType::VALIDATION_ERROR: return "VALIDATION_ERROR";
+            case MoonrakerErrorType::NOT_READY: return "NOT_READY";
+            case MoonrakerErrorType::FILE_NOT_FOUND: return "FILE_NOT_FOUND";
+            case MoonrakerErrorType::PERMISSION_DENIED: return "PERMISSION_DENIED";
+            case MoonrakerErrorType::UNKNOWN: return "UNKNOWN";
+            default: return "UNKNOWN";
+        }
+    }
+
+    /**
      * @brief Get a user-friendly error message
      */
     std::string user_message() const {

@@ -1,55 +1,65 @@
 # Session Handoff Document
 
 **Last Updated:** 2025-11-01
-**Current Focus:** Moonraker API Phase 1 complete. Next: Phase 2 file operations & UI integration.
+**Current Focus:** Test mode infrastructure complete. Next: Update backend factories to respect TestConfig (NO automatic mock fallbacks).
 
 ---
 
 ## ✅ Recently Completed (Session 2025-11-01)
 
-**Moonraker API Phase 1: Core Infrastructure ✅ COMPLETE**
-- ✅ **Connection State Machine** (5 states with automatic transitions)
-  - `ConnectionState` enum: DISCONNECTED, CONNECTING, CONNECTED, RECONNECTING, FAILED
-  - State change callbacks → PrinterState subjects → UI auto-updates
-  - Reconnection with configurable exponential backoff
-- ✅ **Request Timeout Management**
-  - `PendingRequest` structure tracks all in-flight requests
-  - Per-request or global timeout configuration
-  - Automatic cleanup on disconnect with error callbacks
-- ✅ **Comprehensive Error Handling**
-  - `MoonrakerError` structure with typed errors (TIMEOUT, CONNECTION_LOST, JSON_RPC_ERROR, etc.)
-  - User-friendly error messages
-  - JSON-RPC error parsing and mapping
-- ✅ **Configuration-Driven Design** (no hardcoded timeouts)
-  - All timeouts in `helixconfig.json`: connection, request, keepalive, reconnect delays
-  - Runtime configuration via `MoonrakerClient::configure_timeouts()`
-- ✅ **MoonrakerAPI Facade Layer**
-  - High-level domain operations: files, jobs, motion, temperature, system
-  - Async callbacks with success/error handlers
-  - G-code generation helpers
+**Test Mode Infrastructure ✅ COMPLETE**
+- ✅ **TestConfig System** with `--test` flag and selective `--real-*` overrides
+  - Master `--test` flag enables test mode (all mocks by default)
+  - Selective overrides: `--real-wifi`, `--real-ethernet`, `--real-moonraker`, `--real-files`
+  - Production safety: NO mocks ever used without explicit `--test` flag
+  - Visual feedback: Banner shows what's real vs mocked in test mode
+- ✅ **Full CRUD File Operations** in MoonrakerAPI
+  - Added: `move_file()`, `copy_file()`, `create_directory()`, `delete_directory()`
+  - All operations use async callbacks with error handling
+- ✅ **Print Select Panel Integration**
+  - Wired up real file deletion with confirmation dialog
+  - Connected print button to start real prints via Moonraker
+  - File list refreshes from Moonraker with fallback to test data ONLY in test mode
+  - Fixed `MoonrakerError::get_type_string()` method
+- ✅ **Comprehensive Test Coverage**
+  - Full unit tests for TestConfig with all scenarios
+  - Command-line validation tests
+  - Production safety verification
 
-**Files Created/Modified:**
-- New: `moonraker_api.h/cpp`, `moonraker_error.h`, `moonraker_request.h`
-- Modified: `moonraker_client.h/cpp`, `printer_state.h`, `main.cpp`, `helixconfig.json`
+**Files Created:**
+- New: `test_config.h`, `test_test_config.cpp` (unit tests)
+- Modified: `main.cpp`, `moonraker_api.h/cpp`, `moonraker_error.h`, `ui_panel_print_select.cpp`
 
 ---
 
 ## 🎯 Active Work & Next Priorities
 
-1. **Phase 2: File Management UI Integration** (Next)
-   - Wire up `MoonrakerAPI::list_files()` in print_select_panel
-   - Implement file metadata display in detail view
-   - Add delete confirmation modal
+1. **Update Backend Factories for Test Mode** (CRITICAL - Next Session)
+   - WiFi backend factory: Remove automatic mock fallback, respect TestConfig
+   - Ethernet backend factory: Remove automatic mock fallback, respect TestConfig
+   - Managers must handle nullptr backends gracefully in production
+   - NEVER fall back to mocks without explicit `--test` flag
 
-2. **Phase 3: Job Control Integration**
-   - Replace mock print controls with real API calls
-   - Add print state tracking and UI updates
-   - Implement pause/resume/cancel flows
+2. **Fix Moonraker Connection for Test Mode**
+   - Respect `--real-moonraker` flag in test mode
+   - Mock Moonraker responses when `should_mock_moonraker()` is true
+   - Proper error handling in production when connection fails
 
-3. **Phase 4: Multi-Extruder Support**
-   - Dynamic heater discovery and subject creation
-   - Temperature panel for multiple extruders
-   - Tool change support
+3. **Add Visual Test Mode Indicators**
+   - Add "TEST MODE" badge/watermark to UI
+   - Show which components are mocked vs real
+   - Different color theme or border for test mode
+   - Status in window title
+
+4. **Phase 2: File Metadata & Thumbnails**
+   - Fetch and display file metadata (print time, filament from G-code)
+   - Extract and display thumbnails from G-code files
+   - Add refresh button to file list UI
+
+5. **Phase 3: Job Control Integration**
+   - Real-time print progress updates from Moonraker
+   - Implement pause/resume/cancel with proper state management
+   - Handle printer state transitions properly
 
 ---
 
@@ -163,7 +173,48 @@ ui_my_panel_init_subjects();  // FIRST
 lv_xml_create(screen, "my_panel", NULL);  // AFTER
 ```
 
-### Pattern #4: Thread-Safety with lv_async_call() ⚠️ CRITICAL
+### Pattern #4: Test Mode Configuration ⚠️ CRITICAL
+
+**NEVER use mocks in production. Always check TestConfig:**
+
+```cpp
+// Backend factory example - CORRECT pattern
+std::unique_ptr<WifiBackend> WifiBackend::create() {
+    const auto& config = get_test_config();
+
+    if (config.should_mock_wifi()) {
+        spdlog::info("[TEST MODE] Using MOCK WiFi backend");
+        return std::make_unique<WifiBackendMock>();
+    }
+
+    // Production: Try real backend, FAIL if unavailable
+    auto backend = std::make_unique<WifiBackendMacOS>();
+    if (!backend->start()) {
+        spdlog::error("WiFi initialization failed");
+        return nullptr;  // Return nullptr, NO FALLBACK
+    }
+
+    return backend;
+}
+
+// UI code example - Handle test mode properly
+if (config.should_use_test_files()) {
+    spdlog::info("[TEST MODE] Using test file data");
+    populate_test_data();
+} else if (!api) {
+    show_error_screen("Printer not connected");  // NO test data in production!
+}
+```
+
+**Command-line usage:**
+- `./helix-ui-proto` - Production mode (no mocks ever)
+- `./helix-ui-proto --test` - Full test mode (all mocks)
+- `./helix-ui-proto --test --real-moonraker` - Test UI with real printer
+- `./helix-ui-proto --test --real-wifi --real-files` - Mixed mode
+
+**Files:** `test_config.h`, `main.cpp:319-439`
+
+### Pattern #5: Thread-Safety with lv_async_call() ⚠️ CRITICAL
 
 **LVGL is NOT thread-safe.** Backend threads (WiFi, networking, file I/O) cannot create/modify widgets directly.
 
@@ -180,6 +231,21 @@ lv_xml_create(screen, "my_panel", NULL);  // AFTER
 ---
 
 ## 🔧 Known Issues & Gotchas
+
+### Backend Factories Need Test Mode Update ⚠️ CRITICAL
+
+**Issue:** WiFi and Ethernet backend factories currently have automatic mock fallback in production
+
+**Current (WRONG):**
+```cpp
+if (!backend->start()) {
+    // Automatically falls back to mock - BAD!
+    return std::make_unique<WifiBackendMock>();
+}
+```
+
+**Required Fix:** Check TestConfig and return nullptr in production
+**Files:** `src/wifi_backend.cpp`, `src/ethernet_backend.cpp`
 
 ### LVGL 9 XML Roller Options
 

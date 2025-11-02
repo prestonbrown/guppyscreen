@@ -410,6 +410,102 @@ Key settings in `lv_conf.h` for XML support:
 
 **Verdict:** Perfect for embedded touch interfaces where native platform UI isn't available or suitable.
 
+## Test Mode Architecture
+
+### Overview
+
+The test mode system provides a comprehensive mocking infrastructure for development without hardware dependencies while ensuring production builds never accidentally use mock implementations.
+
+### TestConfig Structure
+
+```cpp
+// test_config.h
+struct TestConfig {
+    bool test_mode = false;           // Master flag (--test)
+    bool use_real_wifi = false;       // Override flag (--real-wifi)
+    bool use_real_ethernet = false;   // Override flag (--real-ethernet)
+    bool use_real_moonraker = false;  // Override flag (--real-moonraker)
+    bool use_real_files = false;      // Override flag (--real-files)
+
+    // Helper methods for clean code
+    bool should_mock_wifi() const {
+        return test_mode && !use_real_wifi;
+    }
+    // ... similar for other components
+};
+```
+
+### Factory Pattern with Test Mode
+
+Backend factories respect test configuration to control mock vs real selection:
+
+```cpp
+std::unique_ptr<WifiBackend> WifiBackend::create() {
+    const auto& config = get_test_config();
+
+    // Test mode check FIRST
+    if (config.should_mock_wifi()) {
+        spdlog::info("[TEST MODE] Using MOCK WiFi backend");
+        return std::make_unique<WifiBackendMock>();
+    }
+
+    // Production path - try real, fail if unavailable
+    auto backend = std::make_unique<WifiBackendMacOS>();
+    if (!backend->start()) {
+        spdlog::error("WiFi hardware unavailable");
+        return nullptr;  // NEVER fall back to mock
+    }
+
+    return backend;
+}
+```
+
+### Production Safety Rules
+
+1. **No Automatic Fallbacks:** Production mode NEVER falls back to mocks
+2. **Explicit Test Mode:** Mocks require `--test` flag
+3. **Clear Error Messages:** Hardware failures show user-friendly errors
+4. **Visual Indicators:** Test mode displays banner with mock/real status
+
+### Mock Implementation Features
+
+**WiFi Mock Backend:**
+- 10 realistic networks with varied security (WPA2, WEP, Open)
+- Signal strength variation (±5% per scan)
+- Simulated scan delay (2 seconds)
+- 5% authentication failure rate for realism
+- Random IP address generation
+
+**Ethernet Mock Backend:**
+- Always reports interface available
+- Static IP: 192.168.1.150
+- Instant connection (no delays)
+
+**File List Mock:**
+- 8 test G-code files with varied metadata
+- Realistic file sizes (2MB-50MB)
+- Print times from 5 minutes to 8 hours
+- Mix of directories and files
+
+### Command-Line Interface
+
+```bash
+# Production mode (default)
+./helix-ui-proto                    # No mocks, requires hardware
+
+# Test mode variations
+./helix-ui-proto --test              # All mocks
+./helix-ui-proto --test --real-moonraker  # Real printer only
+./helix-ui-proto --test --real-wifi --real-ethernet  # Real network only
+```
+
+### Implementation Files
+
+- **Core:** `test_config.h`, `main.cpp:319-439`
+- **WiFi:** `wifi_backend.cpp`, `wifi_backend_mock.cpp`
+- **Ethernet:** `ethernet_backend.cpp`, `ethernet_backend_mock.cpp`
+- **Tests:** `tests/unit/test_test_config.cpp`
+
 ## Critical Implementation Patterns
 
 ### Component Instantiation Names

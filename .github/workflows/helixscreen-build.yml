@@ -1,16 +1,16 @@
-name: Prototype UI9 Build
+name: HelixScreen Build
 
 on:
   push:
     branches: [ main, ui-redesign ]
     paths:
       - 'prototype-ui9/**'
-      - '.github/workflows/prototype-ui9-build.yml'
+      - '.github/workflows/helixscreen-build.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'prototype-ui9/**'
-      - '.github/workflows/prototype-ui9-build.yml'
+      - '.github/workflows/helixscreen-build.yml'
 
 jobs:
   build-ubuntu:

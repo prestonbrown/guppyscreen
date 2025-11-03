@@ -1,16 +1,16 @@
-name: Prototype UI9 Quality
+name: HelixScreen Quality
 
 on:
   push:
     branches: [ main, ui-redesign ]
     paths:
       - 'prototype-ui9/**'
-      - '.github/workflows/prototype-ui9-quality.yml'
+      - '.github/workflows/helixscreen-quality.yml'
   pull_request:
     branches: [ main ]
     paths:
       - 'prototype-ui9/**'
-      - '.github/workflows/prototype-ui9-quality.yml'
+      - '.github/workflows/helixscreen-quality.yml'
 
 jobs:
   dependency-check:
@@ -112,7 +112,6 @@ jobs:
         test -f docs/QUICK_REFERENCE.md && echo "✅ QUICK_REFERENCE.md"
         test -f docs/COPYRIGHT_HEADERS.md && echo "✅ COPYRIGHT_HEADERS.md"
         test -f HANDOFF.md && echo "✅ HANDOFF.md"
-        test -f STATUS.md && echo "✅ STATUS.md"
 
   copyright-headers:
     name: Copyright Headers

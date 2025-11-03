@@ -210,10 +210,24 @@ static void on_test_connection_clicked(lv_event_t* e) {
                 spdlog::error("[Wizard Connection] Failed to save config: {}", e.what());
             }
 
-            // Disconnect after successful test (we're just testing, not maintaining connection)
+            // Trigger hardware discovery now that connection is established
+            // This will populate heaters, sensors, fans, and LEDs for wizard steps 4-7
             MoonrakerClient* client = get_moonraker_client();
             if (client) {
-                client->close();
+                client->discover_printer([]() {
+                    spdlog::info("[Wizard Connection] Hardware discovery complete!");
+
+                    // Log discovered hardware counts
+                    MoonrakerClient* client = get_moonraker_client();
+                    if (client) {
+                        auto heaters = client->get_heaters();
+                        auto sensors = client->get_sensors();
+                        auto fans = client->get_fans();
+
+                        spdlog::info("[Wizard Connection] Discovered {} heaters, {} sensors, {} fans",
+                                    heaters.size(), sensors.size(), fans.size());
+                    }
+                });
             }
         },
         // On disconnected callback
